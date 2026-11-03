@@ -223,6 +223,7 @@ final class LocalAPIController {
                 port: port,
                 serviceName: info.name,
                 advertise: true,
+                unauthenticatedRemote: true,
                 info: info
             ),
             routes: APIRouteTable.build(bridge: bridge),

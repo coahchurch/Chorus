@@ -36,14 +36,8 @@ public enum RemoteControlPage {
     <main>
       <header><h1>Chorus Remote</h1><span id="connection" class="status">Not connected</span></header>
       <section>
-        <label class="field">Operate key
-          <input id="key" type="password" autocomplete="off" placeholder="Paste an Operate key">
-        </label>
         <button id="connect" class="primary" style="width:100%;margin-top:10px">Connect</button>
-        <label class="field">Service
-          <select id="service"><option value="">Current service</option></select>
-        </label>
-        <p class="hint">The key stays in this browser tab and is cleared when the tab closes.</p>
+        <p class="hint">This remote is available to devices on the same local network.</p>
       </section>
       <section>
         <div id="serviceName" class="meta">No service selected</div>
@@ -54,30 +48,23 @@ public enum RemoteControlPage {
       <div class="controls">
         <button id="back" aria-label="Previous slide">← Back</button>
         <button id="advance" class="primary" aria-label="Next slide">Next →</button>
+        <button id="underlying">Back to slide</button>
         <button id="blank">Clear slides</button>
         <button id="clearAll" class="danger">Clear all</button>
       </div>
-      <p class="hint">Remote controls require an Operate key. Keep this page on a trusted network.</p>
+      <p class="hint">Keep this page on a trusted network. Anyone on the LAN can operate the current show.</p>
     </main>
     <script>
-    const keyInput = document.querySelector('#key');
     const connection = document.querySelector('#connection');
-    const serviceSelect = document.querySelector('#service');
     const live = document.querySelector('#live');
     const next = document.querySelector('#next');
     const serviceName = document.querySelector('#serviceName');
     const position = document.querySelector('#position');
     let busy = false;
-    keyInput.value = sessionStorage.getItem('chorus.remote.operateKey') || '';
-    keyInput.addEventListener('input', () => {
-      sessionStorage.setItem('chorus.remote.operateKey', keyInput.value.trim());
-    });
     async function request(path, method = 'GET', body) {
-      const token = keyInput.value.trim();
-      if (!token) throw new Error('Enter an Operate key.');
       const response = await fetch(path, {
         method,
-        headers: { Authorization: 'Bearer ' + token, ...(body ? {'Content-Type': 'application/json'} : {}) },
+        headers: { ...(body ? {'Content-Type': 'application/json'} : {}) },
         body: body ? JSON.stringify(body) : undefined
       });
       if (!response.ok) {
@@ -128,42 +115,17 @@ public enum RemoteControlPage {
       command('/v1/show/advance', {steps: -1}));
     document.querySelector('#advance').addEventListener('click', () =>
       command('/v1/show/advance', {steps: 1}));
+    document.querySelector('#underlying').addEventListener('click', () =>
+      command('/v1/show/return-underlying'));
     document.querySelector('#blank').addEventListener('click', () =>
       command('/v1/show/clear', {function: 'slides'}));
     document.querySelector('#clearAll').addEventListener('click', () =>
       command('/v1/show/clear-all', null, 'Clear all live layers?'));
-    async function loadServices() {
-      try {
-        while (serviceSelect.options.length > 1) serviceSelect.remove(1);
-        const entries = await request('/v1/library/services');
-        for (const entry of entries || []) {
-          const option = document.createElement('option');
-          option.value = entry.id;
-          option.textContent = entry.name;
-          serviceSelect.append(option);
-        }
-      } catch (error) {
-        setStatus(error.message, true);
-      }
-    }
-    serviceSelect.addEventListener('change', async () => {
-      if (!serviceSelect.value) return;
-      try {
-        await request('/v1/services/' + encodeURIComponent(serviceSelect.value) + '/select', 'POST');
-        await refresh();
-      } catch (error) {
-        setStatus(error.message, true);
-      }
-    });
     document.querySelector('#connect').addEventListener('click', () => {
       refresh();
-      loadServices();
     });
-    if (keyInput.value.trim()) {
-      refresh();
-      loadServices();
-    }
-    setInterval(() => { if (!document.hidden && keyInput.value.trim()) refresh(); }, 2000);
+    refresh();
+    setInterval(() => { if (!document.hidden) refresh(); }, 2000);
     </script></body></html>
     """
 }

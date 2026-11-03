@@ -7,12 +7,17 @@ public final class LocalAPIServer: @unchecked Sendable {
 
         public var serviceName: String
         public var advertise: Bool
+        public var unauthenticatedRemote: Bool
         public var info: APIServerInfo
 
-        public init(port: UInt16, serviceName: String, advertise: Bool, info: APIServerInfo) {
+        public init(
+            port: UInt16, serviceName: String, advertise: Bool,
+            unauthenticatedRemote: Bool = false, info: APIServerInfo
+        ) {
             self.port = port
             self.serviceName = serviceName
             self.advertise = advertise
+            self.unauthenticatedRemote = unauthenticatedRemote
             self.info = info
         }
     }
@@ -110,7 +115,10 @@ public final class LocalAPIServer: @unchecked Sendable {
                 : APIError.notFound("No such endpoint. The contract is served at /openapi.json.")
             return Self.jsonResponse(.json(error, status: error.status))
         }
-        guard let token = authenticate(request) else {
+        let token = authenticate(request) ?? (configuration.unauthenticatedRemote
+            ? unauthenticatedRemoteToken(for: request)
+            : nil)
+        guard let token else {
             return Self.jsonResponse(.json(APIError.unauthorized(), status: 401))
         }
         guard token.scope.allows(match.route.scope) else {
@@ -143,6 +151,19 @@ public final class LocalAPIServer: @unchecked Sendable {
             return tokens.verify(secret: secret)
         }
         return nil
+    }
+
+    private func unauthenticatedRemoteToken(for request: HTTPRequest) -> APIToken? {
+        guard request.path == "/v1/status"
+            || request.path == "/v1/show/advance"
+            || request.path == "/v1/show/return-underlying"
+            || request.path == "/v1/show/clear"
+            || request.path == "/v1/show/clear-all"
+        else { return nil }
+        return APIToken(
+            id: "lan-remote", name: "LAN Remote", scope: .control,
+            secretRecord: "", prefix: "", createdAt: .distantPast
+        )
     }
 
     private static func jsonResponse(_ payload: APIHandlerResponse) -> HTTPResponse {

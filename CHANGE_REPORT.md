@@ -509,6 +509,7 @@ Validation should cover:
 - Change app icon/name: asset catalog, `project.yml`, release scripts, README, and visible UI strings.
 - Change overlay edit loading timeout/recovery: `SlideEditorView.swift`.
 - Change overlay checkout internals: `SlideEditorModel.swift` and `LibraryEngine+Editor.swift`.
+- The mobile `/remote` page can operate without a token on the configured LAN port. This is intentionally limited to current status, previous/next, clear, panic clear, and `Back to slide` (`/v1/show/return-underlying`). It does not expose library editing or settings. The implementation is in `LocalAPIServer.swift`, `LocalAPIController.swift`, `RemoteControlPage.swift`, `APIRouteTable.swift`, `APIBridge.swift`, `LocalAPIBridgeAdapter.swift`, and `ServiceControls.swift`. Because this mode is unauthenticated, it must only be enabled on a trusted LAN.
 
 ---
 

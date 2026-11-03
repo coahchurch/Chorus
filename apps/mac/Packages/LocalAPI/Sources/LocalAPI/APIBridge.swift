@@ -18,6 +18,7 @@ public protocol LocalAPIBridge: AnyObject, Sendable {
     func fireSlide(_ command: APIFireSlideCommand) async throws
 
     func advance(steps: Int, settled: Bool) async throws
+    func returnToUnderlyingSlide() throws
     func clear(_ command: APIClearCommand) throws
     func clearAll()
     func fireMedia(id: String) throws

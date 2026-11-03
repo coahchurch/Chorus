@@ -434,7 +434,12 @@ final class AppAPIBridge: LocalAPIBridge {
             } else if let service {
                 try advance(steps: steps, settled: settled, service: service, decks: await filledDecks(in: service))
             }
+
         }
+    }
+
+    func returnToUnderlyingSlide() throws {
+        controls.returnFromBibleVerse()
     }
 
     func advanceIgnoringErrors(steps: Int, settled: Bool) {

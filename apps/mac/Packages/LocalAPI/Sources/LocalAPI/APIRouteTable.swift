@@ -231,6 +231,17 @@ public enum APIRouteTable {
         })
 
         routes.append(APIRoute(
+            "POST", "/v1/show/return-underlying", scope: .control,
+            operationId: "returnUnderlyingSlide",
+            summary: "Restore the slide underneath the currently displayed Bible verse.",
+            tag: "Show",
+            responseSchema: .ref("OK")
+        ) { _ in
+            try await bridge.returnToUnderlyingSlide()
+            return .ok
+        })
+
+        routes.append(APIRoute(
             "POST", "/v1/show/clear-all", scope: .control,
             operationId: "clearAll", summary: "The panic clear.", tag: "Show",
             responseSchema: .ref("OK")

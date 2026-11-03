@@ -558,6 +558,13 @@ final class ServiceControls {
         fire(slide: slide, in: presentation, slideActions: false)
     }
 
+    func returnFromBibleVerse() {
+        guard let live = state.liveSlide,
+              let presentation = live.presentation
+        else { return }
+        toggleBibleVerse(slide: live.slide, in: presentation)
+    }
+
     private static func withoutActions(_ slide: Slide) -> Slide {
         var bare = slide
         bare.actions = nil
