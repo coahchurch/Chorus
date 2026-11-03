@@ -418,25 +418,52 @@ final class AppModel {
         let marker = client.rootURL.appendingPathComponent(".bundled-library-installed-v1")
         let files = FileManager.default
         guard !files.fileExists(atPath: marker.path),
-              client.snapshot.entries(of: .song).isEmpty,
               let bundleURL = Self.bundledLibraryURL(),
               files.fileExists(atPath: bundleURL.appendingPathComponent("manifest.json").path)
         else { return }
 
+        if !client.snapshot.entries(of: .song).isEmpty {
+            bundledLibraryPending = true
+            return
+        }
+        await restoreBundledLibrary(from: bundleURL, options: BackupImportOptions())
+    }
+
+    func mergeBundledLibrary() {
+        guard let bundleURL = Self.bundledLibraryURL() else { return }
+        Task { await restoreBundledLibrary(from: bundleURL, options: BackupImportOptions()) }
+    }
+
+    func skipBundledLibrary() {
+        let marker = client.rootURL.appendingPathComponent(".bundled-library-installed-v1")
+        FileManager.default.createFile(atPath: marker.path, contents: nil)
+        bundledLibraryPending = false
+    }
+
+    private func restoreBundledLibrary(
+        from bundleURL: URL, options: BackupImportOptions
+    ) async {
+        let marker = client.rootURL.appendingPathComponent(".bundled-library-installed-v1")
+        let files = FileManager.default
+
         do {
-            let result = try await BackupBundle.restore(from: bundleURL, into: client)
+            let result = try await BackupBundle.restore(
+                from: bundleURL, into: client, options: options)
             guard result.warnings.isEmpty else {
                 DiagnosticsStore.shared.note(
                     "bundledLibrary.restoreWarnings", detail: result.warnings.joined(separator: " | "))
                 return
             }
             files.createFile(atPath: marker.path, contents: nil)
+            bundledLibraryPending = false
             noteLibraryWideMutation()
             FontActivator.activateStored(libraryRoot: client.rootURL)
         } catch {
             DiagnosticsStore.shared.note("bundledLibrary.restoreFailed", detail: "\(error)")
         }
     }
+
+    private(set) var bundledLibraryPending = false
 
     private static func bundledLibraryURL() -> URL? {
         let url = URL(fileURLWithPath: "/Library/Application Support/COAH Chorus/Bundled Library.mxubackup",

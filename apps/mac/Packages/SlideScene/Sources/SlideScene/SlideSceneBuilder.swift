@@ -1061,7 +1061,7 @@ public enum SlideSceneBuilder {
             verticalAlignment: verticalAlignment(resolve(\.verticalAlignment)),
             transform: resolve(\.textTransform) == .uppercase ? .uppercase : .none,
             tabularFigures: resolve(\.tabularFigures) ?? false,
-            autoShrink: resolve(\.autoShrink) ?? false,
+            autoShrink: resolve(\.autoShrink) ?? true,
             minFontSize: resolve(\.minFontSize) ?? StyledText.defaultMinFontSize,
             keepLinesWhole: resolve(\.keepLinesWhole) ?? false,
             balancedWrap: resolve(\.balancedWrap) ?? false,

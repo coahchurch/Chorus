@@ -627,6 +627,22 @@ struct ShellView: View {
             Button("Cancel", role: .cancel) { renamingServiceID = nil }
         }
         .alert(
+            "Install Bundled Chorus Library?",
+            isPresented: Binding(
+                get: { model.bundledLibraryPending },
+                set: { if !$0 { model.skipBundledLibrary() } }
+            )
+        ) {
+            Button("Merge Library") {
+                model.mergeBundledLibrary()
+            }
+            Button("Skip", role: .cancel) {
+                model.skipBundledLibrary()
+            }
+        } message: {
+            Text("This package includes songs, overlays, themes, media, and settings. Merge them into your existing library?")
+        }
+        .alert(
             pendingServiceDelete.count > 1
                 ? "Delete \(pendingServiceDelete.count) Services?"
                 : "Delete Service?",
