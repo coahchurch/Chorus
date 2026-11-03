@@ -800,3 +800,19 @@ Validation:
 
 - Debug Xcode build passed after the transition change.
 - Existing normal-slide global-background fallback remains enabled by default.
+
+## 14. Background selection does not fire live output
+
+Background entries are stored as the same underlying `MediaItem` type as
+ordinary media, so the presentation shell previously interpreted a selected
+background as a directly fireable media selection. `apps/mac/Sources/AppShell.swift`
+now excludes media selections while the Background tab is active. This keeps
+the current song or media output live instead of replacing it or briefly
+revealing another background.
+
+`apps/mac/Sources/LibraryView.swift` observes selection while the Background
+tab is active and calls `setGlobalBackground(mediaID:)`. The clicked item is
+therefore assigned as the persistent global background only; it is not fired
+to the output. The new background becomes visible the next time a normal song
+or presentation slide resolves the global-background fallback. Existing live
+media remains visible until the operator explicitly changes or clears it.

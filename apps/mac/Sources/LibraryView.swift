@@ -733,6 +733,14 @@ struct LibrarySidebar: View {
             }
             return true
         }
+        .onChange(of: model.selectedEntryID) { _, id in
+            guard model.selectedSection == .background,
+                  let id,
+                  let entry = model.indexEntry(id),
+                  entry.kind == .media
+            else { return }
+            model.setGlobalBackground(mediaID: id)
+        }
     }
 
     private var breadcrumbBar: some View {

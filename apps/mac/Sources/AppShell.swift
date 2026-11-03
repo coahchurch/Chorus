@@ -1513,7 +1513,9 @@ struct ShellView: View {
 
             if let id = model.selectedEntryID,
                let entry = model.indexEntry(id),
-               entry.kind == .presentation || entry.kind == .song || entry.kind == .media || entry.kind == .audio {
+               entry.kind == .presentation || entry.kind == .song
+                || (entry.kind == .media && model.selectedSection != .background)
+                || entry.kind == .audio {
                 if entry.kind == .presentation || entry.kind == .song {
                     PresentGridView(
                         model: model, render: render, controls: controls,
