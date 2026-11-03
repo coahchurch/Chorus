@@ -405,12 +405,43 @@ final class AppModel {
         needsOnboarding = Library.needsOnboarding(rootURL: root, snapshot: client.snapshot)
 
         Task { [weak self] in
+            await self?.installBundledLibraryIfNeeded()
             await self?.warmResidency()
         }
         isLibraryReady = true
         let work = readyWork
         readyWork = []
         for item in work { item() }
+    }
+
+    private func installBundledLibraryIfNeeded() async {
+        let marker = client.rootURL.appendingPathComponent(".bundled-library-installed-v1")
+        let files = FileManager.default
+        guard !files.fileExists(atPath: marker.path),
+              client.snapshot.entries(of: .song).isEmpty,
+              let bundleURL = Self.bundledLibraryURL(),
+              files.fileExists(atPath: bundleURL.appendingPathComponent("manifest.json").path)
+        else { return }
+
+        do {
+            let result = try await BackupBundle.restore(from: bundleURL, into: client)
+            guard result.warnings.isEmpty else {
+                DiagnosticsStore.shared.note(
+                    "bundledLibrary.restoreWarnings", detail: result.warnings.joined(separator: " | "))
+                return
+            }
+            files.createFile(atPath: marker.path, contents: nil)
+            noteLibraryWideMutation()
+            FontActivator.activateStored(libraryRoot: client.rootURL)
+        } catch {
+            DiagnosticsStore.shared.note("bundledLibrary.restoreFailed", detail: "\(error)")
+        }
+    }
+
+    private static func bundledLibraryURL() -> URL? {
+        let url = URL(fileURLWithPath: "/Library/Application Support/COAH Chorus/Bundled Library.mxubackup",
+                      isDirectory: true)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
     private func warmResidency() async {
