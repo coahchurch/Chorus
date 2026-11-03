@@ -694,3 +694,42 @@ the menu and keyboard behavior cannot drift apart.
 - `xcodebuild -project apps/mac/Chorus.xcodeproj -scheme Chorus -configuration Debug -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO` — passed.
 - The only remaining build diagnostic is the existing App Intents metadata warning; there are no Swift compile errors.
 - The user-provided `EnglishBible.xml` and `TamilBible.xml` remain untracked and were not committed.
+
+## 11. Current scope and deferred feature backlog
+
+The user elected to keep the remaining feature backlog deferred after the
+Bible/accessibility batch. No implementation was made for these items in this
+update:
+
+- rehearsal mode with simulated Audience, Confidence/Stage, and Live Stream
+  outputs;
+- saved speaker/person lower-third overlays and manual Live Stream triggering;
+- an expanded NDI/output dashboard showing resolution, active overlay,
+  dropped-frame counters, missing-source state, and runtime warnings;
+- bulk library operations for rename, folders, theme assignment, missing
+  transliteration generation, and repair/reflow;
+- conservative duplicate detection with comparison, canonical selection, and
+  explicit merge conflict decisions;
+- a complete offline package-update workflow beyond the current bundled-library
+  installation and merge prompt;
+- a searchable, global command-palette window;
+- shortcut conflict detection and shortcut editing;
+- full theme preview scenarios;
+- expanded VoiceOver labels, keyboard navigation, color-blind-safe indicators,
+  and broader accessibility coverage;
+- privacy-safe diagnostics export;
+- physical-phone verification and further mobile remote polish;
+- signed and notarized package distribution.
+
+The existing implementations remain available and unchanged, including the
+trusted-LAN remote on port 6980, conditional text fitting, bundled-library
+installation/merge behavior, Live Stream-only overlay routing, bilingual song
+editing, fuzzy library search, overlay editor timeout/retry behavior, and the
+current unsigned package workflow. This section is a scope record, not a
+claim that the deferred items are complete.
+
+### Documentation-only update
+
+This report update intentionally changes documentation only. No source files,
+library assets, XML inputs, package contents, or runtime settings were changed
+by this section.
