@@ -124,10 +124,19 @@ final class RenderContext {
 
     func previewProvider(for target: String) -> @Sendable () -> RenderScene {
         if let layoutID = PreviewTargetLogic.layoutID(for: target) {
-            return { [confidenceBox, previewLayoutsBox] in
-                previewLayoutsBox.value[layoutID].map {
-                    ConfidenceSceneBuilder.scene(layout: $0, info: confidenceBox.value, at: Date())
-                } ?? .empty
+            return { [transitions, confidenceBox, previewLayoutsBox, confidenceMediaModeBox] in
+                guard let layout = previewLayoutsBox.value[layoutID] else { return .empty }
+                if layout.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .caseInsensitiveCompare("Current Big") == .orderedSame,
+                   confidenceMediaModeBox.value {
+                    let now = Date()
+                    return VisibilityRules.filteredScene(
+                        transitions.scene(at: now), info: confidenceBox.value, at: now
+                    )
+                }
+                return ConfidenceSceneBuilder.scene(
+                    layout: layout, info: confidenceBox.value, at: Date()
+                )
             }
         } else {
             return outputs.previewProvider(for: target)

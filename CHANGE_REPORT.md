@@ -836,3 +836,14 @@ for songs, slides, and background-only output.
 Validation:
 
 - Debug Xcode build passed after the Current Big media mirror change.
+
+### Preview-path correction
+
+The first implementation covered physical confidence screens through
+`OutputManager.confidenceSceneProvider`, but the Stage preview uses
+`RenderContext.previewProvider(for:)` and its `PreviewTargetLogic` layout path.
+That path previously bypassed the media mirror and always called
+`ConfidenceSceneBuilder.scene`. `RenderContext.previewProvider(for:)` now
+applies the same Current Big/foreground-media check to preview layout targets,
+so the in-app Stage preview and the physical confidence output use identical
+behavior.
