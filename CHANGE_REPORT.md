@@ -733,3 +733,49 @@ claim that the deferred items are complete.
 This report update intentionally changes documentation only. No source files,
 library assets, XML inputs, package contents, or runtime settings were changed
 by this section.
+
+## 12. Media, background, and presentation-asset separation
+
+### Direct media selection is a slide
+
+`apps/mac/Sources/ServiceControls.swift` now routes a direct
+`fire(mediaItem:)` call through `fireMediaAsSlide`. The selected image or video
+is represented as a one-slide in-memory `Presentation` using
+`Slide.droppedMedia`, then sent through the normal slide firing path. This
+replaces the currently presented slide instead of leaving the old slide
+visible beneath a foreground media layer. The slide uses the existing
+`CueMedia.droppedAsNewSlide` route, so the renderer's slide canvas fitting and
+conditional text/media sizing apply consistently. Service-item media cues keep
+their existing layer behavior; only direct library/media selection changes.
+
+### Background imports remain backgrounds
+
+`apps/mac/Sources/LibraryView.swift` now passes the selected library section
+into media import behavior. Imports initiated from the Background tab call
+`AppModel.importFiles(..., classification: .background)`. This applies to
+both the file-picker import and drag-and-drop import paths. All other media
+imports retain the normal default classification. In
+`apps/mac/Sources/AppModel.swift`, newly imported media and reused duplicate
+media receive the requested classification, so the Background tab filter and
+global background picker see the item immediately. Selecting a background
+still updates the persistent global background; it does not become a
+foreground slide.
+
+### Imported presentation assets
+
+PowerPoint presentations require image/video files to remain in the library so
+their slide references can render. They are therefore not discarded, but
+`apps/mac/Packages/PresenterCore/Sources/PresenterCore/MediaImport/ImportMediaResolver.swift`
+can mark resolver-created assets with the internal
+`__presentation_asset__` collection. The PowerPoint importer enables this mode
+in `PPTXImporter.swift`. `AppModel.browserEntries(in:)` excludes those marked
+dependencies from the general Media tab while retaining them for the imported
+presentation. This prevents a presentation's internal pictures from becoming
+ordinary user-selectable Media entries.
+
+### Validation
+
+- Debug Xcode build passed after the routing, import classification, and
+  presentation-asset filtering changes.
+- Existing service-item media behavior was preserved.
+- No source XML files or library assets were added to the commit.

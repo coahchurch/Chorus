@@ -30,7 +30,9 @@ public struct PPTXImporter {
         at urls: [URL], folder: String? = "PowerPoint Import",
         onDocument: ((URL) -> Void)? = nil
     ) async -> [DocumentSummary] {
-        guard let resolver = try? await ImportMediaResolver(client: client, placement: placement) else { return [] }
+        guard let resolver = try? await ImportMediaResolver(
+            client: client, placement: placement, hideImportedMediaFromLibrary: true
+        ) else { return [] }
         var summaries: [DocumentSummary] = []
         for url in expand(urls) {
             onDocument?(url)

@@ -15,14 +15,22 @@ public final class ImportMediaResolver {
     }
 
     private let mediaImporter: MediaImporter
+    private let client: LibraryClient
 
     private let placement: LibraryHome.Placement
+    private let hideImportedMediaFromLibrary: Bool
     private var mediaByHash: [String: String]
     private var audioByHash: [String: String]
 
-    public init(client: LibraryClient, placement: LibraryHome.Placement = .unplaced) async throws {
+    public init(
+        client: LibraryClient,
+        placement: LibraryHome.Placement = .unplaced,
+        hideImportedMediaFromLibrary: Bool = false
+    ) async throws {
+        self.client = client
         mediaImporter = try MediaImporter(client: client)
         self.placement = placement
+        self.hideImportedMediaFromLibrary = hideImportedMediaFromLibrary
         let index = try await client.settledSnapshot()
         let media = index.entries(of: .media).map(\.id)
         let audio = index.entries(of: .audio).map(\.id)
@@ -81,6 +89,13 @@ public final class ImportMediaResolver {
             }
             let results = await mediaImporter.importFiles(at: [fileURL], placement: placement)
             if case .media(let id, _)? = results.first?.outcome {
+                if hideImportedMediaFromLibrary {
+                    _ = client.modify(MediaItem.self, id: id) {
+                        if !$0.collections.contains("__presentation_asset__") {
+                            $0.collections.append("__presentation_asset__")
+                        }
+                    }
+                }
                 resolution.idMap[want.placeholderID] = id
                 resolution.importedIDs.insert(id)
                 resolution.imported += 1

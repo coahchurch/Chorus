@@ -1310,6 +1310,10 @@ final class ServiceControls {
         context: MediaFireContext = .direct
     ) -> LayerKind {
 
+        if case .direct = context {
+            return fireMediaAsSlide(mediaItem)
+        }
+
         let layer = SlideSceneBuilder.layerKind(CueMedia.dropped(for: mediaItem).layer)
 
         guard !appModel.isMediaFileMissing(mediaItem) else {
@@ -1347,6 +1351,26 @@ final class ServiceControls {
             serviceTracking?.noteItemFired(serviceItemID: id)
         }
         appModel.markUsed(mediaItem.id)
+        return layer
+    }
+
+    @discardableResult
+    private func fireMediaAsSlide(_ mediaItem: MediaItem) -> LayerKind {
+        let layer = SlideSceneBuilder.layerKind(CueMedia.droppedAsNewSlide(for: mediaItem).layer)
+        guard !appModel.isMediaFileMissing(mediaItem) else {
+            DiagnosticsStore.shared.note("media.slide.missingFile", detail: mediaItem.name)
+            return layer
+        }
+        let slide = Slide.droppedMedia(mediaItem)
+        let presentation = Presentation(
+            id: "media-slide:\(mediaItem.id)",
+            name: mediaItem.name,
+            presentationKind: .deck,
+            themeId: "",
+            slides: [slide],
+            origin: PresentationOrigin(.madeHere, detail: "Direct media slide")
+        )
+        fire(slide: slide, in: presentation, slideActions: false)
         return layer
     }
 

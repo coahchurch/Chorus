@@ -864,7 +864,8 @@ final class AppModel {
         if section == .media || section == .background {
             entries = entries.filter { entry in
                 let isBackground = media(entry.id)?.classification == .background
-                return section == .background ? isBackground : !isBackground
+                let isPresentationAsset = media(entry.id)?.collections.contains("__presentation_asset__") == true
+                return section == .background ? isBackground : !isBackground && !isPresentationAsset
             }
         }
         browserEntriesCache = (key, entries)
@@ -3584,7 +3585,10 @@ final class AppModel {
     }
 
     @discardableResult
-    func importFiles(_ urls: [URL], placement: LibraryHome.Placement? = nil) async -> [String] {
+    func importFiles(
+        _ urls: [URL], placement: LibraryHome.Placement? = nil,
+        classification: MediaClassification? = nil
+    ) async -> [String] {
         isImporting = true
         defer { isImporting = false }
         let files = MediaImporter.files(in: urls)
@@ -3625,6 +3629,9 @@ final class AppModel {
             }
             if let existingID {
                 reused += 1
+                if kind == .media, let classification {
+                    updateMedia(existingID) { $0.classification = classification }
+                }
                 if kind == .media { mediaIDs.append(existingID) }
             } else {
                 let result = await importer?.importFiles(
@@ -3634,6 +3641,9 @@ final class AppModel {
                 case .media(let id, let status)?:
                     added += 1
                     if status == .needsTranscode { flagged += 1 }
+                    if let classification {
+                        updateMedia(id) { $0.classification = classification }
+                    }
                     mediaIDs.append(id)
                     if let hash { dedupe.note(id: id, hash: hash, name: copyName ?? name, kind: .media) }
                 case .audio(let id)?:

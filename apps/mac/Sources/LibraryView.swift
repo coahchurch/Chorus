@@ -724,7 +724,12 @@ struct LibrarySidebar: View {
             let files = urls.filter { !AppModel.isPresentationFile($0) }
             Task {
                 if !presentations.isEmpty { await model.importPresentationFiles(presentations) }
-                if !files.isEmpty { await model.importFiles(files) }
+                if !files.isEmpty {
+                    await model.importFiles(
+                        files,
+                        classification: model.selectedSection == .background ? .background : nil
+                    )
+                }
             }
             return true
         }
@@ -1620,7 +1625,12 @@ struct LibrarySidebar: View {
         panel.begin { response in
             guard response == .OK else { return }
             let urls = panel.urls
-            Task { @MainActor in await model.importFiles(urls) }
+            Task { @MainActor in
+                await model.importFiles(
+                    urls,
+                    classification: model.selectedSection == .background ? .background : nil
+                )
+            }
         }
     }
 }
