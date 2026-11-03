@@ -1303,6 +1303,7 @@ struct SlideEditorView: View {
 
 struct EditorCommands: Commands {
     @FocusedValue(\.slideEditor) private var editor
+    @FocusedValue(\.serviceControls) private var serviceControls
 
     var journal: MoveUndoJournal?
 
@@ -1348,7 +1349,11 @@ struct EditorCommands: Commands {
         CommandGroup(replacing: .undoRedo) {
             Button("Undo") { undo() }
                 .keyboardShortcut("z", modifiers: .command)
-                .disabled(UndoMenuLogic.disabled(editorOpen: editor != nil, editorCan: editor?.canUndo ?? false))
+                .disabled(
+                    UndoMenuLogic.disabled(
+                        editorOpen: editor != nil, editorCan: editor?.canUndo ?? false
+                    ) && serviceControls?.canUndoLiveAction != true
+                )
             Button("Redo") { redo() }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
                 .disabled(UndoMenuLogic.disabled(editorOpen: editor != nil, editorCan: editor?.canRedo ?? false))
@@ -1370,7 +1375,11 @@ struct EditorCommands: Commands {
             DiagnosticsStore.shared.note("undo.menu", detail: "field editor")
             NSApp.sendAction(Selector(("undo:")), to: nil, from: nil)
         case .nothing:
-            DiagnosticsStore.shared.note("undo.menu", detail: "nothing to undo")
+            if serviceControls?.undoLiveAction() == true {
+                DiagnosticsStore.shared.note("undo.menu", detail: "live action")
+            } else {
+                DiagnosticsStore.shared.note("undo.menu", detail: "nothing to undo")
+            }
         }
     }
 

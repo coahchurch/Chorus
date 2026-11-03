@@ -1701,12 +1701,58 @@ struct LibraryCommands: Commands {
                 .disabled(model == nil || runOnly)
             Button("Import Chorus Presentation…") { model?.presentPresentationFileImport() }
                 .disabled(model == nil || runOnly)
+            Button("Export Service…") { exportService() }
+                .disabled(model == nil || model?.currentServiceID == nil || runOnly)
+            Button("Import Service…") { importService() }
+                .disabled(model == nil || runOnly)
             Divider()
             Button("Export Library Backup…") { exportBackup() }
                 .disabled(model == nil || runOnly)
             Button("Import Library Backup…") { importBackup() }
                 .disabled(model == nil || runOnly)
         }
+    }
+
+    private func exportService() {
+            guard let model, let id = model.currentServiceID else { return }
+            do {
+                let service = try model.mainService(id)
+                let panel = NSSavePanel()
+                panel.allowedContentTypes = [UTType(filenameExtension: "chorusservice")].compactMap { $0 }
+                panel.nameFieldStringValue = "\(service.name).chorusservice"
+                panel.begin { response in
+                    guard response == .OK, let url = panel.url else { return }
+                    do {
+                        try model.exportService(id, to: url)
+                    } catch {
+                        showServiceError(error, context: "Export service")
+                    }
+                }
+            } catch {
+                showServiceError(error, context: "Read service")
+            }
+        }
+
+    private func importService() {
+            guard let model else { return }
+            let panel = NSOpenPanel()
+            panel.allowedContentTypes = [UTType(filenameExtension: "chorusservice")].compactMap { $0 }
+            panel.begin { response in
+                guard response == .OK, let url = panel.url else { return }
+                do {
+                    _ = try model.importService(from: url)
+                } catch {
+                    showServiceError(error, context: "Import service")
+                }
+            }
+        }
+
+    private func showServiceError(_ error: Error, context: String) {
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = context
+            alert.informativeText = error.localizedDescription
+            alert.runModal()
     }
 
     private func createAndSelect(_ section: LibrarySection) {

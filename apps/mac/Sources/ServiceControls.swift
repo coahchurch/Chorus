@@ -474,6 +474,25 @@ final class ServiceControls {
     weak var serviceTracking: ServiceTimingController?
 
     private(set) var mediaFireContexts: [String: String] = [:]
+    private var restoringLiveAction = false
+
+    var canUndoLiveAction: Bool {
+        state.lastSlide != nil
+    }
+
+    @discardableResult
+    func undoLiveAction() -> Bool {
+        guard !restoringLiveAction, let previous = state.lastSlide,
+              let presentation = previous.presentation
+        else { return false }
+        restoringLiveAction = true
+        defer { restoringLiveAction = false }
+        fire(
+            slide: previous.slide, in: presentation,
+            arrangementId: previous.arrangementId, slideActions: false
+        )
+        return true
+    }
 
     func fire(
         slide: Slide, in presentation: Presentation, arrangementId: String? = nil,

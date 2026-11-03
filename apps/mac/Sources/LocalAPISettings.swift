@@ -1,5 +1,6 @@
 import LocalAPI
 import SwiftUI
+import CoreImage.CIFilterBuiltins
 
 extension APIScope {
     var label: String {
@@ -119,6 +120,7 @@ struct CopyGlyphButton: View {
 
 struct LocalAPIContractRow: View {
     let api: LocalAPIController
+    @State private var showingQR = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -128,6 +130,8 @@ struct LocalAPIContractRow: View {
                 }
             }
             .disabled(!api.running)
+            Button("Show QR") { showingQR = true }
+                .disabled(!api.running)
             CopyGlyphButton(value: api.remoteURL)
             Button("Open API Reference") {
                 if let url = URL(string: api.docsURL) {
@@ -137,6 +141,51 @@ struct LocalAPIContractRow: View {
             .disabled(!api.running)
             CopyGlyphButton(value: api.docsURL)
         }
+        .sheet(isPresented: $showingQR) {
+            RemotePairingQRView(url: api.remoteURL)
+        }
+    }
+}
+
+struct RemotePairingQRView: View {
+    let url: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Text("Scan to Open Remote")
+                .font(.headline)
+            if let image = Self.image(for: url) {
+                Image(nsImage: image)
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 260, height: 260)
+                    .padding(12)
+                    .background(.white)
+            } else {
+                Text("Unable to create a pairing code.")
+                    .foregroundStyle(.secondary)
+            }
+            Text(url)
+                .font(.system(size: 11).monospaced())
+                .textSelection(.enabled)
+            Button("Done") { dismiss() }
+                .keyboardShortcut(.defaultAction)
+        }
+        .padding(24)
+        .frame(minWidth: 340)
+    }
+
+    private static func image(for value: String) -> NSImage? {
+        guard let data = value.data(using: .utf8) else { return nil }
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = data
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage else { return nil }
+        let scaled = output.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
+        let context = CIContext()
+        guard let cgImage = context.createCGImage(scaled, from: scaled.extent) else { return nil }
+        return NSImage(cgImage: cgImage, size: NSSize(width: 260, height: 260))
     }
 }
 

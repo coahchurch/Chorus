@@ -857,3 +857,28 @@ implementation carries an explicit `mediaMode` argument through
 `ServiceControls.fire` and its deferred theme-fill path into `land`. Normal
 slides pass the default `false`; direct media slides pass `true` after being
 constructed, and background-classified service media remains excluded.
+## 27. Service workflows, live undo, and remote pairing (2026-03-09)
+
+### 27.1 Service export/import
+
+The Library command menu now includes **Export Service…** and **Import Service…**. Service files use the `.chorusservice` extension and contain a versioned JSON envelope with the service metadata and ordered `ServiceItem` references. Imports always receive a new service ID and are selected as the current service, preventing accidental replacement of an existing service. Unsupported formats and malformed files are surfaced with an alert.
+
+Implementation:
+
+- `AppModel.exportService(_:to:)` writes a pretty-printed, sorted-key JSON document.
+- `AppModel.importService(from:)` validates the format/version, creates a new ID, marks the name as imported, and persists the service.
+- `LibraryCommands` owns the native save/open panels and user-visible error handling.
+
+This is intentionally a service-only interchange format. Referenced library assets are not copied; the receiving library must contain the referenced songs, presentations, media, and overlays.
+
+### 27.2 Command-Z for live slide actions
+
+The existing Undo command now falls back to the focused `ServiceControls` instance after text-field, slide-editor, and library journal undo targets are exhausted. The latest live slide can be restored from `ShowState.lastSlide`, including a previously live foreground media slide when it has a presentation context. Live undo state is transient and is not written to the library.
+
+### 27.3 QR remote pairing
+
+Local API settings now provide **Show QR** beside the remote URL. The QR is generated locally with macOS Core Image (`CIQRCodeGenerator`), so no network service or third-party dependency is involved. Scanning the code opens the existing trusted-LAN remote at port `6980`.
+
+### 27.4 Validation
+
+- `xcodebuild -project apps/mac/Chorus.xcodeproj -scheme Chorus -configuration Debug -destination 'platform=macOS' build` passed after these changes.

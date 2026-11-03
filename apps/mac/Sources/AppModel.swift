@@ -1487,6 +1487,42 @@ final class AppModel {
         return runningVersion(of: main).map { ServiceVersions.apply($0, to: main) } ?? main
     }
 
+    func exportService(_ id: String, to url: URL) throws {
+        let service = try mainService(id)
+        struct Export: Codable {
+            var format = "chorus-service"
+            var version = 1
+            var service: Service
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(Export(service: service))
+        try data.write(to: url, options: .atomic)
+    }
+
+    @discardableResult
+    func importService(from url: URL) throws -> String {
+        struct Export: Codable {
+            var format: String
+            var version: Int
+            var service: Service
+        }
+        let data = try Data(contentsOf: url)
+        let decoded = try JSONDecoder().decode(Export.self, from: data)
+        guard decoded.format == "chorus-service", decoded.version == 1 else {
+            throw NSError(domain: "ChorusServiceImport", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "This file is not a supported Chorus service export."
+            ])
+        }
+        var service = decoded.service
+        service.id = UUID().uuidString
+        service.name = "\(service.name) (Imported)"
+        service.versions = nil
+        createInDrive(service)
+        currentServiceID = service.id
+        return service.id
+    }
+
     func mainService(_ id: String) throws -> Service {
         try Self.resident(resident.services.value(id), kind: .service, id: id)
     }
