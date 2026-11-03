@@ -882,3 +882,13 @@ Local API settings now provide **Show QR** beside the remote URL. The QR is gene
 ### 27.4 Validation
 
 - `xcodebuild -project apps/mac/Chorus.xcodeproj -scheme Chorus -configuration Debug -destination 'platform=macOS' build` passed after these changes.
+## 28. v1 DMG packaging (2026-11-03)
+
+Created an unsigned v1 distribution image from a fresh Release build:
+
+- Output: `apps/mac/build/dmg-v1/COAH-Chorus-v1.dmg`
+- Contents: `Chorus.app` and an `/Applications` installation link
+- Approximate image size: 33 MB
+- Build revision: `76505e6`
+
+The image includes the app bundle and its embedded runtime dependencies. It is unsigned because this Mac has no valid Developer ID signing identity installed; macOS may require the user to approve the app in Privacy & Security on first launch.
