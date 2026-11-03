@@ -11,6 +11,19 @@ struct PresentCommands: Commands {
 
     var body: some Commands {
         CommandMenu("Present") {
+            Menu("Command Palette") {
+                Button("Next Slide") { controls?.advance(steps: 1, otherwise: {}) }
+                    .keyboardShortcut(command: .nextSlide)
+                Button("Previous Slide") { controls?.advance(steps: -1, otherwise: {}) }
+                    .keyboardShortcut(command: .previousSlide)
+                Button("Clear All") { controls?.clearAll() }
+                    .keyboardShortcut(command: .clearAll)
+                Divider()
+                Button("Open Settings") {
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                }
+            }
+            Divider()
             if volunteerEnabled {
                 Button("Volunteer Mode") { VolunteerModeRouter.shared.request() }
                     .keyboardShortcut(command: .modeVolunteer)

@@ -596,6 +596,15 @@ struct BibleLibraryView: View {
                 }
                 .buttonStyle(.plain)
                 Spacer()
+                Button {
+                    presentChapter()
+                } label: {
+                    Label("Present chapter", systemImage: "play.fill")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(verses.isEmpty || controls == nil)
                 Text("VERSES")
                     .font(.system(size: 9, weight: .bold, design: .rounded))
                     .tracking(1.2)
@@ -940,6 +949,26 @@ struct BibleLibraryView: View {
             origin: PresentationOrigin(.madeHere, detail: "Bible XML live verse")
         )
         controls.toggleBibleVerse(slide: slide, in: presentation)
+    }
+
+    private func presentChapter() {
+        guard let controls, !verses.isEmpty else { return }
+        let slides = verses.map {
+            makeSlide(
+                for: $0,
+                sectionID: "bible-\($0.book)-\($0.chapter)",
+                tamil: tamilVersesByID[$0.id]
+            )
+        }
+        let presentation = Presentation(
+            id: "bible-passage:\(englishVersionID):\(selectedBook):\(selectedChapter)",
+            name: "\(selectedBook) \(selectedChapter)",
+            presentationKind: .deck,
+            themeId: "",
+            slides: slides,
+            origin: PresentationOrigin(.madeHere, detail: "Bible passage builder")
+        )
+        controls.fire(slide: slides[0], in: presentation)
     }
 
     private func biblePresentationID(for verse: BibleXMLImporter.Verse) -> String {

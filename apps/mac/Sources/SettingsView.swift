@@ -17,6 +17,9 @@ struct AppSettingsView: View {
     @Environment(\.dismissWindow) private var dismissWindow
 
     @AppStorage("app.appearance") private var appearanceRaw = AppAppearance.dark.rawValue
+    @AppStorage("app.largeUI") private var largeUI = false
+    @AppStorage("app.highContrast") private var highContrast = false
+    @AppStorage("app.accentColor") private var accentColorRaw = "indigo"
     @AppStorage("app.language") private var languageRaw = AppLanguage.english.rawValue
     @AppStorage("present.continuous") private var continuousPresent = true
     @AppStorage("slideGrid.roundedCorners") private var roundedCorners = true
@@ -56,7 +59,10 @@ struct AppSettingsView: View {
         .frame(minWidth: 860, idealWidth: 860, maxWidth: .infinity, minHeight: 640, idealHeight: 640, maxHeight: .infinity)
         .background(SettingsWindowFrame())
         .background(Color.basePlane)
+        .tint(accentColor)
+        .controlSize(largeUI ? .large : .regular)
         .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .dark).colorScheme)
+        .contrast(highContrast ? 1.25 : 1.0)
         .onAppear {
             if let pending = SettingsRouter.shared.pending {
                 category = pending
@@ -178,6 +184,15 @@ struct AppSettingsView: View {
         return all.filter { $0.searchText.contains(needle) }
     }
 
+    private var accentColor: Color {
+        switch accentColorRaw {
+        case "blue": .blue
+        case "green": .green
+        case "orange": .orange
+        default: .indigo
+        }
+    }
+
     private var allRows: [SettingsRowSpec] {
         var rows: [SettingsRowSpec] = [
             SettingsRowSpec(
@@ -194,6 +209,35 @@ struct AppSettingsView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .fixedSize()
+                )
+            ),
+            SettingsRowSpec(
+                id: "appearance.largeUI",
+                title: "Larger interface",
+                caption: "Increase control sizes for touch-friendly operation.",
+                keywords: "accessibility large controls touch",
+                control: AnyView(Toggle("", isOn: $largeUI).labelsHidden())
+            ),
+            SettingsRowSpec(
+                id: "appearance.highContrast",
+                title: "High contrast",
+                caption: "Use stronger visual separation and non-color status cues.",
+                keywords: "accessibility contrast color blind",
+                control: AnyView(Toggle("", isOn: $highContrast).labelsHidden())
+            ),
+            SettingsRowSpec(
+                id: "appearance.accent",
+                title: "Accent color",
+                caption: "Choose the interface highlight color.",
+                keywords: "accessibility color theme accent",
+                control: AnyView(
+                    Picker("", selection: $accentColorRaw) {
+                        Text("Indigo").tag("indigo")
+                        Text("Blue").tag("blue")
+                        Text("Green").tag("green")
+                        Text("Orange").tag("orange")
+                    }
+                    .labelsHidden()
                 )
             ),
             SettingsRowSpec(

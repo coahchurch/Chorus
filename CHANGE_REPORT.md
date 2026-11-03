@@ -649,3 +649,48 @@ Focused validation most recently completed:
 - The final SwiftUI and batched-library changes compile in the Debug app build; they have not been manually exercised in a live presentation session after the final build.
 - macOS responsiveness has not been measured with a formal benchmark suite. The listed changes remove specific repeated scans, eager selection expansion, unbounded initial rendering, and per-song import writes.
 - The library now matches the supplied XML under the probe’s normalized-title, duplicate-resolution, reflow, and slide-text comparison. Three generic English entries have low lyric-token overlap, but are matched by title and produce no residual diff.
+
+## 10. Feature batch: Bible passage presentation and accessibility
+
+### Bible chapter builder
+
+`apps/mac/Sources/BibleLibraryView.swift` now exposes **Present chapter** in the
+chapter verse header. The action reads the currently indexed English chapter,
+maps each English verse to the Tamil verse with the same canonical verse ID,
+and creates an in-memory `Presentation` containing one slide per verse. Each
+slide is generated through the existing `makeSlide(for:sectionID:tamil:)`
+renderer, so the chapter uses the same bilingual typography, reference label,
+version labels, auto-shrink behavior, and theme routing as individual Bible
+verses. The first slide is fired through `ServiceControls.fire`; therefore the
+existing next/previous slide commands and the LAN remote operate on the whole
+chapter deck. No source XML is copied into the library and no existing
+presentation is overwritten. The deck ID is deterministic for the selected
+version, book, and chapter, which makes diagnostics and live-state tracking
+stable during a service.
+
+### Accessibility and appearance settings
+
+`apps/mac/Sources/SettingsView.swift` adds persisted settings under the
+`app.largeUI`, `app.highContrast`, and `app.accentColor` keys. Larger interface
+uses SwiftUI's `.controlSize(.large)` at the settings-window root, high contrast
+uses a controlled contrast multiplier rather than changing document colors, and
+accent color is applied through `.tint` with indigo, blue, green, and orange
+choices. The settings rows are searchable with the existing settings search
+field, and the values survive relaunch through `@AppStorage`. These settings
+currently target the settings and operator configuration surfaces; slide
+document colors and output rendering remain unchanged.
+
+### Operator command grouping
+
+`apps/mac/Sources/PresentCommands.swift` adds a **Command Palette** menu under
+Present. It provides direct menu access to next slide, previous slide, clear
+all, and Settings, while reusing the existing `KeyCommand` bindings for the
+navigation and clear actions. This deliberately does not introduce a second
+shortcut engine: customized bindings continue to come from `KeyMapStore`, so
+the menu and keyboard behavior cannot drift apart.
+
+### Validation for this batch
+
+- `xcodebuild -project apps/mac/Chorus.xcodeproj -scheme Chorus -configuration Debug -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO` — passed.
+- The only remaining build diagnostic is the existing App Intents metadata warning; there are no Swift compile errors.
+- The user-provided `EnglishBible.xml` and `TamilBible.xml` remain untracked and were not committed.
