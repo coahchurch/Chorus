@@ -477,7 +477,8 @@ final class ServiceControls {
 
     func fire(
         slide: Slide, in presentation: Presentation, arrangementId: String? = nil,
-        contextID: String? = nil, occurrence: Int? = nil, slideActions: Bool = true
+        contextID: String? = nil, occurrence: Int? = nil, slideActions: Bool = true,
+        useGlobalBackground: Bool = true
     ) {
 
         settlePending()
@@ -497,7 +498,8 @@ final class ServiceControls {
                 defer { self.nextFireArrivesSettled = false }
                 self.fire(
                     slide: slide, in: presentation, arrangementId: arrangementId, contextID: contextID,
-                    occurrence: occurrence, slideActions: slideActions)
+                    occurrence: occurrence, slideActions: slideActions,
+                    useGlobalBackground: useGlobalBackground)
             }
             return
         }
@@ -507,7 +509,8 @@ final class ServiceControls {
         case .now(let theme):
             land(
                 slide: slide, in: presentation, theme: theme, arrangementId: arrangementId, contextID: contextID,
-                occurrence: occurrence, slideActions: slideActions)
+                occurrence: occurrence, slideActions: slideActions,
+                useGlobalBackground: useGlobalBackground)
         case .afterFill:
             deferring(slide, in: presentation, why: "theme fill")
             let settled = nextFireArrivesSettled
@@ -519,7 +522,7 @@ final class ServiceControls {
                     self.land(
                         slide: slide, in: presentation, theme: self.appModel.theme(themeID),
                         arrangementId: arrangementId, contextID: contextID, occurrence: occurrence,
-                        slideActions: slideActions)
+                        slideActions: slideActions, useGlobalBackground: useGlobalBackground)
                     self.nextFireArrivesSettled = false
                 }
             }
@@ -573,7 +576,8 @@ final class ServiceControls {
 
     private func land(
         slide: Slide, in presentation: Presentation, theme: Theme?, arrangementId: String?,
-        contextID: String?, occurrence: Int?, slideActions: Bool
+        contextID: String?, occurrence: Int?, slideActions: Bool,
+        useGlobalBackground: Bool
     ) {
         if bibleVerseReturn?.currentPresentationID != presentation.id {
             bibleVerseReturn = nil
@@ -593,10 +597,8 @@ final class ServiceControls {
         state.fire(
             slide: slide, presentation: presentation,
             theme: theme, arrangementId: arrangementId,
-
-            atHostTime: CACurrentMediaTime(),
-
-            arrivesSettled: nextFireArrivesSettled
+            arrivesSettled: nextFireArrivesSettled,
+            useGlobalBackground: useGlobalBackground
         )
         syncAutomaticStreamOverlay(slide: slide, presentation: presentation)
 
@@ -1370,7 +1372,10 @@ final class ServiceControls {
             slides: [slide],
             origin: PresentationOrigin(.madeHere, detail: "Direct media slide")
         )
-        fire(slide: slide, in: presentation, slideActions: false)
+        fire(
+            slide: slide, in: presentation, slideActions: false,
+            useGlobalBackground: false
+        )
         return layer
     }
 

@@ -169,7 +169,8 @@ public struct ShowState: Sendable, Equatable {
         theme: Theme? = nil,
         arrangementId: String? = nil,
         atHostTime: Double = 0,
-        arrivesSettled: Bool = false
+        arrivesSettled: Bool = false,
+        useGlobalBackground: Bool = true
     ) {
         if let outgoing = liveSlide, outgoing.slide.id != slide.id {
             lastSlide = outgoing
@@ -195,7 +196,7 @@ public struct ShowState: Sendable, Equatable {
         slideDismissAt = nil
         let background = SlideSceneBuilder.effectiveBackground(
             slide: slide, presentation: presentation, arrangementId: arrangementId,
-            globalBackground: globalBackground
+            globalBackground: useGlobalBackground ? globalBackground : nil
         )
         let backgroundLayer = background.map { SlideSceneBuilder.layerKind($0.layer) }
 

@@ -779,3 +779,24 @@ ordinary user-selectable Media entries.
   presentation-asset filtering changes.
 - Existing service-item media behavior was preserved.
 - No source XML files or library assets were added to the commit.
+
+## 13. Preventing global-background flashes during media changes
+
+`apps/mac/Packages/SlideScene/Sources/SlideScene/ShowState.swift` now accepts
+the `useGlobalBackground` flag when firing a slide. Normal presentations keep
+the default behavior and continue resolving their final fallback background
+from the persistent global background. Direct media slides, created by
+`ServiceControls.fireMediaAsSlide` in
+`apps/mac/Sources/ServiceControls.swift`, pass `useGlobalBackground: false`.
+
+This keeps the selected media item's own slide background as the only visual
+background during a direct media-to-media handoff. The global background is
+not cleared from settings and is still used as soon as a normal song,
+presentation, or other slide is fired. The change therefore removes the
+intermediate global-background frame without changing the user's configured
+background.
+
+Validation:
+
+- Debug Xcode build passed after the transition change.
+- Existing normal-slide global-background fallback remains enabled by default.
