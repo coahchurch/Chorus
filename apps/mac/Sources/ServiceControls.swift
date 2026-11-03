@@ -478,10 +478,9 @@ final class ServiceControls {
     func fire(
         slide: Slide, in presentation: Presentation, arrangementId: String? = nil,
         contextID: String? = nil, occurrence: Int? = nil, slideActions: Bool = true,
-        useGlobalBackground: Bool = true
+        useGlobalBackground: Bool = true, mediaMode: Bool = false
     ) {
 
-        render.confidenceMediaModeBox.value = false
         settlePending()
         let routed = slideActions ? slide : Self.withoutActions(slide)
         let incoming = actionRouter?.predictedOverrideThemes(for: routed, contextID: contextID) ?? Array(slideThemeOverrides.values)
@@ -500,7 +499,7 @@ final class ServiceControls {
                 self.fire(
                     slide: slide, in: presentation, arrangementId: arrangementId, contextID: contextID,
                     occurrence: occurrence, slideActions: slideActions,
-                    useGlobalBackground: useGlobalBackground)
+                    useGlobalBackground: useGlobalBackground, mediaMode: mediaMode)
             }
             return
         }
@@ -511,7 +510,7 @@ final class ServiceControls {
             land(
                 slide: slide, in: presentation, theme: theme, arrangementId: arrangementId, contextID: contextID,
                 occurrence: occurrence, slideActions: slideActions,
-                useGlobalBackground: useGlobalBackground)
+                useGlobalBackground: useGlobalBackground, mediaMode: mediaMode)
         case .afterFill:
             deferring(slide, in: presentation, why: "theme fill")
             let settled = nextFireArrivesSettled
@@ -523,7 +522,8 @@ final class ServiceControls {
                     self.land(
                         slide: slide, in: presentation, theme: self.appModel.theme(themeID),
                         arrangementId: arrangementId, contextID: contextID, occurrence: occurrence,
-                        slideActions: slideActions, useGlobalBackground: useGlobalBackground)
+                        slideActions: slideActions, useGlobalBackground: useGlobalBackground,
+                        mediaMode: mediaMode)
                     self.nextFireArrivesSettled = false
                 }
             }
@@ -578,7 +578,7 @@ final class ServiceControls {
     private func land(
         slide: Slide, in presentation: Presentation, theme: Theme?, arrangementId: String?,
         contextID: String?, occurrence: Int?, slideActions: Bool,
-        useGlobalBackground: Bool
+        useGlobalBackground: Bool, mediaMode: Bool
     ) {
         if bibleVerseReturn?.currentPresentationID != presentation.id {
             bibleVerseReturn = nil
@@ -601,6 +601,7 @@ final class ServiceControls {
             arrivesSettled: nextFireArrivesSettled,
             useGlobalBackground: useGlobalBackground
         )
+        render.confidenceMediaModeBox.value = mediaMode
         syncAutomaticStreamOverlay(slide: slide, presentation: presentation)
 
         for (layer, cue) in state.liveMedia where layer != .slide {
@@ -1377,7 +1378,7 @@ final class ServiceControls {
         render.confidenceMediaModeBox.value = true
         fire(
             slide: slide, in: presentation, slideActions: false,
-            useGlobalBackground: false
+            useGlobalBackground: false, mediaMode: true
         )
         return layer
     }

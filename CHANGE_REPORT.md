@@ -847,3 +847,13 @@ That path previously bypassed the media mirror and always called
 applies the same Current Big/foreground-media check to preview layout targets,
 so the in-app Stage preview and the physical confidence output use identical
 behavior.
+
+### Media-state correction
+
+The media mirror flag was initially set before calling the shared slide-fire
+method. That method's normal-slide reset immediately cleared it, so the
+Current Big branch never observed foreground media as active. The corrected
+implementation carries an explicit `mediaMode` argument through
+`ServiceControls.fire` and its deferred theme-fill path into `land`. Normal
+slides pass the default `false`; direct media slides pass `true` after being
+constructed, and background-classified service media remains excluded.
