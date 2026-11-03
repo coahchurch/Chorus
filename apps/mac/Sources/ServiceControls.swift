@@ -481,6 +481,7 @@ final class ServiceControls {
         useGlobalBackground: Bool = true
     ) {
 
+        render.confidenceMediaModeBox.value = false
         settlePending()
         let routed = slideActions ? slide : Self.withoutActions(slide)
         let incoming = actionRouter?.predictedOverrideThemes(for: routed, contextID: contextID) ?? Array(slideThemeOverrides.values)
@@ -1316,6 +1317,7 @@ final class ServiceControls {
             return fireMediaAsSlide(mediaItem)
         }
 
+        render.confidenceMediaModeBox.value = mediaItem.classification != .background
         let layer = SlideSceneBuilder.layerKind(CueMedia.dropped(for: mediaItem).layer)
 
         guard !appModel.isMediaFileMissing(mediaItem) else {
@@ -1372,6 +1374,7 @@ final class ServiceControls {
             slides: [slide],
             origin: PresentationOrigin(.madeHere, detail: "Direct media slide")
         )
+        render.confidenceMediaModeBox.value = true
         fire(
             slide: slide, in: presentation, slideActions: false,
             useGlobalBackground: false

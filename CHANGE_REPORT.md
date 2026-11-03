@@ -816,3 +816,23 @@ therefore assigned as the persistent global background only; it is not fired
 to the output. The new background becomes visible the next time a normal song
 or presentation slide resolves the global-background fallback. Existing live
 media remains visible until the operator explicitly changes or clears it.
+
+## 15. Current Big confidence media mirror
+
+`apps/mac/Sources/RenderContext.swift` now tracks whether the active output is
+a foreground media presentation using `confidenceMediaModeBox`. Direct media
+slides set this state, and service-item media sets it only when the media
+classification is not `.background`. Normal slide firing clears the state, so
+backgrounds and song slides do not trigger the mirror.
+
+When the active confidence layout is named **Current Big**, its confidence
+scene provider returns the same transitioned, visibility-filtered audience
+scene while foreground media is active. This displays the media at the same
+fit and crop as the Audience output rather than rendering it as a text
+confidence layout. Other confidence layouts remain unchanged, and the
+Current Big layout automatically returns to its normal confidence rendering
+for songs, slides, and background-only output.
+
+Validation:
+
+- Debug Xcode build passed after the Current Big media mirror change.

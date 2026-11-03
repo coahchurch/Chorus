@@ -24,6 +24,7 @@ final class RenderContext {
     let confidenceBox: Locked<ConfidenceInfo>
 
     let confidenceLayoutsBox: Locked<[UUID: ConfidenceLayout]>
+    let confidenceMediaModeBox: Locked<Bool>
 
     let previewLayoutsBox: Locked<[String: ConfidenceLayout]>
 
@@ -148,6 +149,7 @@ final class RenderContext {
         self.liveBox = Locked(initialLive)
         self.confidenceBox = Locked(ConfidenceInfo())
         self.confidenceLayoutsBox = Locked([:])
+        self.confidenceMediaModeBox = Locked(false)
         self.previewLayoutsBox = Locked([:])
         compositor.mediaSource = media
 
@@ -167,9 +169,18 @@ final class RenderContext {
         }
 
         SyncTestPlayback.install(outputs: outputs, media: media)
-        outputs.confidenceSceneProvider = { [confidenceBox, confidenceLayoutsBox] screenID in
+        outputs.confidenceSceneProvider = {
+            [transitions, confidenceBox, confidenceLayoutsBox, confidenceMediaModeBox] screenID in
             let info = confidenceBox.value
             if let layout = confidenceLayoutsBox.value[screenID] {
+                if layout.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    .caseInsensitiveCompare("Current Big") == .orderedSame,
+                   confidenceMediaModeBox.value {
+                    let now = Date()
+                    return VisibilityRules.filteredScene(
+                        transitions.scene(at: now), info: info, at: now
+                    )
+                }
                 return ConfidenceSceneBuilder.scene(layout: layout, info: info, at: Date())
             }
 
