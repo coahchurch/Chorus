@@ -23,7 +23,7 @@ public final class SleepProofing {
         guard shouldBeActive != isActive else { return }
         isActive = shouldBeActive
         if shouldBeActive {
-            assertions.beginAssertions(reason: "MxU Slides output is live")
+            assertions.beginAssertions(reason: "Chorus output is live")
         } else {
             assertions.endAssertions()
         }

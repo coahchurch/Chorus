@@ -227,7 +227,7 @@ def main(argv):
     result = {"run": info, "metrics": values, "steps": detail, "passed": passed, "baseline": os.path.abspath(baseline_path)}
     with open(os.path.join(folder, "results.json"), "w") as handle:
         json.dump(result, handle, indent=1, default=str)
-    print(f"MxU Slides perf check: {info.get('label', '?')} ({info.get('commit', '?')}) on {info.get('machine', '?')}")
+    print(f"COAH Chorus perf check: {info.get('label', '?')} ({info.get('commit', '?')}) on {info.get('machine', '?')}")
     print(table(rows))
     print(("PASS" if passed else "FAIL") + f" — results: {os.path.join(folder, 'results.json')}")
     return 0 if passed else 1

@@ -114,10 +114,10 @@ struct SettingsCategoryPane: View {
                         Section {
                             spec.control
                         } header: {
-                            Text(spec.title)
+                            Text(LocalizedStringKey(spec.title))
                                 .settingsHelp(spec.help)
                         } footer: {
-                            if let caption = spec.caption { Text(caption) }
+                            if let caption = spec.caption { Text(LocalizedStringKey(caption)) }
                         }
                     } else {
                         Section {
@@ -129,7 +129,7 @@ struct SettingsCategoryPane: View {
                                 }
                             }
                         } header: {
-                            if let title = section.title { Text(title) }
+                            if let title = section.title { Text(LocalizedStringKey(title)) }
                         }
                     }
                 }
@@ -145,9 +145,9 @@ extension SettingsCategoryPane {
         Button(action: open) {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(spec.title)
+                    Text(LocalizedStringKey(spec.title))
                     if let caption = spec.caption {
-                        Text(caption).font(.caption).foregroundStyle(.secondary)
+                        Text(LocalizedStringKey(caption)).font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
@@ -196,13 +196,13 @@ struct SettingsPageHeader: View {
             Button(action: back) {
                 HStack(spacing: 3) {
                     Image(systemName: "chevron.left").font(.system(size: 11, weight: .semibold))
-                    Text(backTitle).font(.system(size: 12))
+                    Text(LocalizedStringKey(backTitle)).font(.system(size: 12))
                 }
                 .foregroundStyle(Color.accentColor)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            Text(title).font(.system(size: 13, weight: .semibold))
+            Text(LocalizedStringKey(title)).font(.system(size: 13, weight: .semibold))
             Spacer()
         }
         .padding(.horizontal, 16)
@@ -217,9 +217,9 @@ struct SettingsFormRow: View {
         LabeledContent {
             spec.control
         } label: {
-            Text(spec.title)
+            Text(LocalizedStringKey(spec.title))
             if let caption = spec.caption, !caption.isEmpty {
-                Text(caption)
+                Text(LocalizedStringKey(caption))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -234,7 +234,7 @@ extension View {
     @ViewBuilder
     func settingsHelp(_ text: String?) -> some View {
         if let text {
-            help(text)
+            help(LocalizedStringKey(text))
         } else {
             self
         }

@@ -99,7 +99,7 @@ final class MIDIDeviceInventory {
     private func startSetupNotifications() {
         guard setupClient == 0 else { return }
         MIDIClientCreateWithBlock(
-            "MxU Slides Setup" as CFString, &setupClient
+            "Chorus Setup" as CFString, &setupClient
         ) { notification in
             guard notification.pointee.messageID == .msgSetupChanged else { return }
 

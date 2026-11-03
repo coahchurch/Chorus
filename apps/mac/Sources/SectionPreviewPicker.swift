@@ -117,7 +117,7 @@ struct SectionPreviewPicker: View {
                     ForEach(row.slides, id: \.id) { slide in
                         SlideThumbnailView(
                             model: model, render: render,
-                            slide: shown(slide), presentation: presentation, theme: model.theme(presentation.themeId),
+                            slide: shown(slide), presentation: presentation, theme: model.theme(for: presentation),
                             arrangementId: nil, hideScopedBackgrounds: false,
                             contentStamp: contentStamp
                         )

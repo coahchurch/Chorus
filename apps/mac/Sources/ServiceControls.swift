@@ -14,6 +14,9 @@ import SlideScene
 @Observable
 final class ServiceControls {
     private(set) var state = ShowState()
+    private var automaticStreamOverlayID: String?
+    private var automaticStreamSlide: Slide?
+    private var automaticStreamPresentation: Presentation?
 
     let appModel: AppModel
 
@@ -42,6 +45,8 @@ final class ServiceControls {
 
     private var transitionResweepScheduled = false
 
+    @ObservationIgnored private var lastListVersion = 0
+
     init(appModel: AppModel, render: RenderContext) {
         self.appModel = appModel
         self.render = render
@@ -60,6 +65,9 @@ final class ServiceControls {
         mixer.tracks = tracks
         tracks.onFoundPlaying = { [weak self] status in self?.timeline.resume(fromTracks: status) }
         tracks.start()
+
+        lastListVersion = appModel.listVersion
+        updateGlobalBackground()
 
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
@@ -119,6 +127,26 @@ final class ServiceControls {
         streaming.onLiveChanged = { [weak self] in self?.pushCaptureVisibility() }
         VideoInputInventory.shared.onConnectedChanged = { [weak self] connected in
             self?.pushConnectedInputVisibility(connected)
+        }
+    }
+
+    private func updateGlobalBackground() {
+        let mediaId = appModel.globalBackgroundId()
+        if let item = appModel.media(mediaId) {
+            state.setGlobalBackground(CueMedia.droppedOnSlide(for: item))
+        } else if !mediaId.isEmpty {
+            state.setGlobalBackground(CueMedia(
+                mediaId: mediaId, layer: .loopingVideos, classification: .background
+            ))
+        } else {
+            state.setGlobalBackground(nil)
+        }
+    }
+
+    private func checkLibraryVersion() {
+        if appModel.listVersion != lastListVersion {
+            lastListVersion = appModel.listVersion
+            updateGlobalBackground()
         }
     }
 
@@ -426,6 +454,15 @@ final class ServiceControls {
     private(set) var liveContextID: String?
     private(set) var liveOccurrence: Int?
 
+    private struct BibleVerseReturn {
+        var currentPresentationID: String
+        let previousSlide: ShowState.LiveSlide?
+        let contextID: String?
+        let occurrence: Int?
+    }
+
+    private var bibleVerseReturn: BibleVerseReturn?
+
     private(set) var keyboardFires = 0
 
     func noteKeyboardFire() {
@@ -465,7 +502,7 @@ final class ServiceControls {
             return
         }
 
-        let themeID = presentation.themeId(for: slide)
+        let themeID = appModel.themeID(for: slide, in: presentation)
         switch appModel.resident.themes.fireRead(themeID) {
         case .now(let theme):
             land(
@@ -489,6 +526,38 @@ final class ServiceControls {
         }
     }
 
+    func toggleBibleVerse(slide: Slide, in presentation: Presentation) {
+        if let returnState = bibleVerseReturn,
+           returnState.currentPresentationID == presentation.id,
+           state.liveSlide?.presentation?.id == presentation.id {
+            bibleVerseReturn = nil
+            guard let previous = returnState.previousSlide,
+                  let previousPresentation = previous.presentation else {
+                clear(layer: .slide)
+                return
+            }
+            fire(
+                slide: previous.slide, in: previousPresentation,
+                arrangementId: previous.arrangementId,
+                contextID: returnState.contextID, occurrence: returnState.occurrence,
+                slideActions: false)
+            return
+        }
+
+        if var returnState = bibleVerseReturn,
+           state.liveSlide?.presentation?.id == returnState.currentPresentationID {
+            returnState.currentPresentationID = presentation.id
+            bibleVerseReturn = returnState
+        } else {
+            bibleVerseReturn = BibleVerseReturn(
+                currentPresentationID: presentation.id,
+                previousSlide: state.liveSlide,
+                contextID: liveContextID,
+                occurrence: liveOccurrence)
+        }
+        fire(slide: slide, in: presentation, slideActions: false)
+    }
+
     private static func withoutActions(_ slide: Slide) -> Slide {
         var bare = slide
         bare.actions = nil
@@ -499,6 +568,9 @@ final class ServiceControls {
         slide: Slide, in presentation: Presentation, theme: Theme?, arrangementId: String?,
         contextID: String?, occurrence: Int?, slideActions: Bool
     ) {
+        if bibleVerseReturn?.currentPresentationID != presentation.id {
+            bibleVerseReturn = nil
+        }
 
         actionRouter?.applyPresetSwitches(for: slideActions ? slide : Self.withoutActions(slide), contextID: contextID)
 
@@ -507,6 +579,10 @@ final class ServiceControls {
             render.nextLiveTransitions[.slide] = entrance
         }
         let deckWasLive = livePresentationID == presentation.id
+        checkLibraryVersion()
+        updateGlobalBackground()
+        automaticStreamSlide = slide
+        automaticStreamPresentation = presentation
         state.fire(
             slide: slide, presentation: presentation,
             theme: theme, arrangementId: arrangementId,
@@ -515,6 +591,7 @@ final class ServiceControls {
 
             arrivesSettled: nextFireArrivesSettled
         )
+        syncAutomaticStreamOverlay(slide: slide, presentation: presentation)
 
         for (layer, cue) in state.liveMedia where layer != .slide {
             if let entrance = RenderContext.sceneTransition(
@@ -972,7 +1049,7 @@ final class ServiceControls {
     @discardableResult
     func fireServiceItem(_ item: ServiceItem) -> ServiceItemFireResult {
         switch item.itemKind {
-        case .presentation:
+        case .presentation, .song:
             guard let presentation = appModel.presentation(item.refId) else { return .decoding }
             let slides = SlideSceneBuilder.arrangedSlides(
                 for: presentation, arrangementId: item.arrangementId
@@ -1114,6 +1191,103 @@ final class ServiceControls {
             }
         }
         appModel.markUsed(overlay.id)
+    }
+
+    func refreshAutomaticStreamOverlay() {
+        if let slide = automaticStreamSlide, let presentation = automaticStreamPresentation {
+            syncAutomaticStreamOverlay(slide: slide, presentation: presentation)
+        }
+    }
+
+    private func syncAutomaticStreamOverlay(slide: Slide, presentation: Presentation) {
+        if let automaticStreamOverlayID,
+           state.liveOverlays.contains(where: { $0.id == automaticStreamOverlayID }) {
+            state.dismissOverlay(id: automaticStreamOverlayID, atHostTime: CACurrentMediaTime())
+            self.automaticStreamOverlayID = nil
+        }
+
+        let isBibleVerse = presentation.origin?.detail?.localizedCaseInsensitiveContains("Bible XML live verse") == true
+        let templateID: String
+        let templateNames: [String]
+        if isBibleVerse {
+            templateID = UserDefaults.standard.string(forKey: "liveStream.defaultBibleOverlayID") ?? ""
+            templateNames = ["Verse + Reference (Lower Third)", "Verse + Reference"]
+        } else if presentation.presentationKind == .song
+                    || presentation.origin?.detail?.localizedCaseInsensitiveContains("song") == true {
+            templateID = UserDefaults.standard.string(forKey: "liveStream.defaultSongOverlayID") ?? ""
+            templateNames = ["Lyrics (Lower Third)", "Lyrics"]
+        } else {
+            apply()
+            return
+        }
+
+        let entries = appModel.entries(in: .overlays)
+        let templateEntry = (!templateID.isEmpty ? entries.first(where: { $0.id == templateID }) : nil)
+            ?? templateNames.lazy.compactMap { name in
+                entries.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame })
+            }.first
+            ?? templateNames.lazy.compactMap { name in
+                entries.first(where: {
+                    $0.name.localizedCaseInsensitiveContains(name)
+                        && !$0.name.localizedCaseInsensitiveContains("Side Third")
+                })
+            }.first
+        guard let templateEntry, var overlay = appModel.overlay(templateEntry.id)
+        else {
+            apply()
+            return
+        }
+
+        let slideText = slide.objects.map(\.text).joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if isBibleVerse {
+            let reference = slide.objects.first(where: { $0.name == "Bible Reference" })?.text
+            let scripture = slide.objects.first(where: { $0.name == "Scripture" })?.text
+            for index in overlay.objects.indices {
+                if overlay.objects[index].name == "Verse" {
+                    overlay.objects[index].text = scripture ?? slideText
+                }
+                if overlay.objects[index].name == "Reference" {
+                    overlay.objects[index].text = reference ?? slide.name
+                }
+            }
+        } else {
+            let lines = slideText.components(separatedBy: .newlines)
+                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            let tamilLines = lines.filter(Self.containsTamil)
+            let englishLines = lines.filter { !Self.containsTamil($0) }
+            let english = englishLines.joined(separator: "\n")
+            let tamil = tamilLines.joined(separator: "\n")
+
+            if !tamil.isEmpty, !english.isEmpty,
+               let primaryIndex = overlay.objects.firstIndex(where: { $0.name == "Lyrics" }) {
+                var right = overlay.objects[primaryIndex]
+                right.id += "-tamil"
+                right.name = "Tamil Lyrics"
+                right.text = tamil
+                right.x = (right.x ?? 210) + (right.width ?? 1550) / 2
+                right.width = (right.width ?? 1550) / 2
+
+                overlay.objects[primaryIndex].text = english
+                overlay.objects[primaryIndex].x = 210
+                overlay.objects[primaryIndex].width = 750
+                overlay.objects.insert(right, at: primaryIndex + 1)
+            } else if let primaryIndex = overlay.objects.firstIndex(where: { $0.name == "Lyrics" }) {
+                overlay.objects[primaryIndex].text = tamil.isEmpty ? english : tamil
+                overlay.objects[primaryIndex].x = 160
+                overlay.objects[primaryIndex].width = 1600
+            }
+        }
+
+        automaticStreamOverlayID = overlay.id
+        state.fire(overlay: overlay, atHostTime: CACurrentMediaTime())
+        apply()
+    }
+
+    private static func containsTamil(_ text: String) -> Bool {
+        text.unicodeScalars.contains { scalar in
+            (0x0B80...0x0BFF).contains(scalar.value)
+        }
     }
 
     enum MediaFireContext {
@@ -1510,7 +1684,9 @@ final class ServiceControls {
     private func cueTracksAhead() {
         guard TimelineTracks.hasTracks(appModel.trackChannels), let contextID = liveContextID, let serviceID = appModel.currentServiceID,
               let service = try? appModel.service(serviceID) else { return }
-        let show = appModel.runOfShow(service).filter { $0.itemKind == .presentation }
+        let show = appModel.runOfShow(service).filter {
+            $0.itemKind == .presentation || $0.itemKind == .song
+        }
         guard let index = show.firstIndex(where: { $0.id == contextID }) else { return }
         timeline.cueAhead(show[index...].prefix(2).compactMap { item in
             appModel.presentation(item.refId).map { (item.id, $0, item.arrangementId) }
@@ -1527,7 +1703,8 @@ final class ServiceControls {
 
     private func servicePositions(in service: Service) -> [ServicePosition] {
         var positions: [ServicePosition] = []
-        for item in appModel.runOfShow(service) where item.itemKind == .presentation {
+        for item in appModel.runOfShow(service)
+        where item.itemKind == .presentation || item.itemKind == .song {
 
             guard let presentation = appModel.presentation(item.refId) else { continue }
             let slides = SlideSceneBuilder.arrangedSlides(

@@ -102,7 +102,7 @@ final class FeedbackController {
             let files = FileManager.default
             let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "")
             let staging = files.temporaryDirectory
-                .appendingPathComponent("MxU Slides Diagnostics \(stamp)", isDirectory: true)
+                .appendingPathComponent("Chorus Diagnostics \(stamp)", isDirectory: true)
             try files.createDirectory(at: staging, withIntermediateDirectories: true)
             defer { try? files.removeItem(at: staging) }
 

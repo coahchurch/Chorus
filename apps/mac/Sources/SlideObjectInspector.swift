@@ -34,7 +34,7 @@ struct SlideObjectInspector: View {
     )
 
     enum Tab: String, CaseIterable {
-        case presentation, slide, object, animation
+        case presentation, background, slide, object, animation
     }
 
     @State private var tab: Tab = .object
@@ -43,6 +43,7 @@ struct SlideObjectInspector: View {
         var options: [(Tab, String)] = []
         if model.hasPresentationSettings {
             options.append((.presentation, "Presentation"))
+            options.append((.background, "Background"))
         }
         options.append((.slide, slideTabTitle))
 
@@ -72,6 +73,8 @@ struct SlideObjectInspector: View {
             switch tab {
             case .presentation:
                 presentationInspector()
+            case .background:
+                songBackgroundInspector()
             case .slide:
                 if model.currentSlide == nil {
 
@@ -237,12 +240,6 @@ struct SlideObjectInspector: View {
                     }
                 }
             }
-            InspectorSection("Background") {
-                PresentationBackgroundRows(model: model)
-                Text("A color drawn under every slide of this presentation.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
             InspectorSection("Arrangements") {
                 LabeledContent(arrangementsSummary) {
                     Button("Edit\u{2026}") { showingArrangements = true }
@@ -255,6 +252,40 @@ struct SlideObjectInspector: View {
                     .foregroundStyle(.secondary)
             }
             presentationSettingsSection()
+        }
+    }
+
+    private func songBackgroundInspector() -> some View {
+        InspectorForm {
+            InspectorSection("Song Background") {
+                if let background = model.presentation.background {
+                    MediaPickCard(
+                        model: model.appModel, mediaID: background.mediaId,
+                        scope: "every slide in this song"
+                    ) {
+                        showingBackgroundPicker = true
+                    }
+                    Button("Remove Background", role: .destructive) {
+                        model.setSongBackground(mediaID: nil)
+                    }
+                } else {
+                    Text("Choose media to use behind every slide in this song.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Choose Background…") { showingBackgroundPicker = true }
+                }
+            }
+            InspectorSection("Background Fill") {
+                PresentationBackgroundRows(model: model)
+                Text("A color drawn under every slide in this song.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .sheet(isPresented: $showingBackgroundPicker) {
+            LibraryPickerSheet(appModel: model.appModel) { entry in
+                model.setSongBackground(mediaID: entry.id)
+            }
         }
     }
 

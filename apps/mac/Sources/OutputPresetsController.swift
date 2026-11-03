@@ -96,9 +96,12 @@ final class OutputPresetsController {
         applyRetryTask = nil
         let table = appModel.resident.outputPresets
         if let id = activePresetID, let preset = preset(id) {
-            let waiting = Self.slideThemeIDs(of: preset).filter { themeID in
+            let waiting = Array(Set(
+                Self.slideThemeIDs(of: preset)
+                    + (NDIScreenOutputs.shared.lowerThirdThemeID.map { [$0] } ?? [])
+            ).filter { themeID in
                 if case .afterFill = appModel.resident.themes.fireRead(themeID) { true } else { false }
-            }
+            })
             if waiting.isEmpty {
                 route(preset)
             } else {
@@ -122,9 +125,7 @@ final class OutputPresetsController {
             if let id = activePresetID {
                 DiagnosticsStore.shared.note("presets.routing", detail: "active preset \(id) is not in the library — every layer routes")
             }
-            outputs.setLayerRouting([:])
-            outputs.setSlideThemeRouting([:])
-            controls?.setSlideThemeOverrides([:])
+            applyDedicatedLowerThirdOnly()
             applyMaskActivation(nil)
         }
     }
@@ -138,8 +139,6 @@ final class OutputPresetsController {
         for assignment in preset.assignments {
             routing[assignment.targetId] = Set(assignment.enabledLayers)
         }
-        outputs.setLayerRouting(routing)
-
         var themeRouting: [String: String] = [:]
         var overrides: [String: Theme] = [:]
         for assignment in preset.assignments {
@@ -172,9 +171,54 @@ final class OutputPresetsController {
             }
             themeRouting[assignment.targetId] = key
         }
+        addDedicatedLowerThirdRouting(
+            to: &routing, themeRouting: &themeRouting, overrides: &overrides
+        )
         outputs.setSlideThemeRouting(themeRouting)
+        outputs.setLayerRouting(routing)
+        setDedicatedLowerThirdTransparency()
         controls?.setSlideThemeOverrides(overrides)
         applyMaskActivation(preset)
+    }
+
+    private func applyDedicatedLowerThirdOnly() {
+        var routing: [String: Set<String>] = [:]
+        var themeRouting: [String: String] = [:]
+        var overrides: [String: Theme] = [:]
+        addDedicatedLowerThirdRouting(
+            to: &routing, themeRouting: &themeRouting, overrides: &overrides
+        )
+        outputs.setLayerRouting(routing)
+        outputs.setSlideThemeRouting(themeRouting)
+        setDedicatedLowerThirdTransparency()
+        controls?.setSlideThemeOverrides(overrides)
+    }
+
+    private func setDedicatedLowerThirdTransparency() {
+        let targets = NDIScreenOutputs.shared.lowerThirdScreenID
+            .map { Set([$0.uuidString]) } ?? []
+        outputs.setTransparentBackgroundTargets(targets)
+    }
+
+    private func addDedicatedLowerThirdRouting(
+        to routing: inout [String: Set<String>],
+        themeRouting: inout [String: String],
+        overrides: inout [String: Theme]
+    ) {
+        guard let screenID = NDIScreenOutputs.shared.lowerThirdScreenID else { return }
+        let targetID = screenID.uuidString
+        routing[targetID] = [LayerKind.slide.rawValue]
+        guard let themeID = NDIScreenOutputs.shared.lowerThirdThemeID,
+              !themeID.isEmpty else { return }
+        guard let theme = appModel.theme(themeID) else {
+            DiagnosticsStore.shared.note(
+                "presets.lowerThird.themeMissing", detail: themeID
+            )
+            return
+        }
+        let key = Self.lookKey(themeID: themeID, folder: nil, slideID: nil)
+        themeRouting[targetID] = key
+        overrides[key] = theme
     }
 
     static func lookKey(themeID: String, folder: String?, slideID: String?) -> String {

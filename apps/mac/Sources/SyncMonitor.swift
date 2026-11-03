@@ -396,12 +396,12 @@ struct SyncMonitorSheet: View {
                 }
             }
             if liveHold {
-                Text("A stream, recording or service is running, so MxU Slides\u{2019} other audio on this device keeps playing. What you hear here may not be this window\u{2019}s sound alone \u{2014} watch the level meter.")
+                Text("A stream, recording or service is running, so Chorus\u{2019} other audio on this device keeps playing. What you hear here may not be this window\u{2019}s sound alone \u{2014} watch the level meter.")
                     .font(.callout)
                     .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Toggle("Silence MxU Slides\u{2019} other audio on this device while this window is open", isOn: $takesOverDevice)
+                Toggle("Silence Chorus\u{2019} other audio on this device while this window is open", isOn: $takesOverDevice)
             }
             syncTestRow
             HStack {

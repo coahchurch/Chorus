@@ -2,7 +2,7 @@ import Foundation
 
 public enum BackupSection: String, Codable, CaseIterable, Sendable {
 
-    case presentations, media, mediaFiles, themes, overlays, alerts
+    case presentations, songs, media, mediaFiles, themes, overlays, alerts
     case confidenceLayouts, combos, playlists, services, schedules, notes
 
     case outputPresets, streaming, midiDevices, controlBoards, groups
@@ -12,7 +12,7 @@ public enum BackupSection: String, Codable, CaseIterable, Sendable {
 
     public var column: Column {
         switch self {
-        case .presentations, .media, .mediaFiles, .themes, .overlays, .alerts,
+        case .presentations, .songs, .media, .mediaFiles, .themes, .overlays, .alerts,
              .confidenceLayouts, .combos, .playlists, .services, .schedules, .notes:
             .content
         case .outputPresets, .streaming, .midiDevices, .controlBoards, .groups,
@@ -24,6 +24,7 @@ public enum BackupSection: String, Codable, CaseIterable, Sendable {
     public var title: String {
         switch self {
         case .presentations: "Presentations"
+        case .songs: "Songs"
         case .media: "Media & audio library"
         case .mediaFiles: "Include the media files"
         case .themes: "Themes"
@@ -49,6 +50,7 @@ public enum BackupSection: String, Codable, CaseIterable, Sendable {
     public static func section(for kind: DocumentKind) -> BackupSection {
         switch kind {
         case .presentation, .importLedger: .presentations
+        case .song: .songs
         case .media, .audio, .trackSet: .media
         case .theme: .themes
         case .overlay: .overlays

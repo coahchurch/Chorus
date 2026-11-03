@@ -13,7 +13,7 @@ final class WaveformStore {
     private let limiter = AsyncLimiter(limit: 2)
 
     nonisolated static let folder = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent(Bundle.main.bundleIdentifier ?? "MxU Slides", isDirectory: true)
+        .appendingPathComponent(Bundle.main.bundleIdentifier ?? "Chorus", isDirectory: true)
         .appendingPathComponent("Waveforms", isDirectory: true)
 
     func waveform(hash: String, blobs: BlobStore?) async -> Waveform? {

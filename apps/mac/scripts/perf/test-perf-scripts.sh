@@ -17,7 +17,7 @@ check() {
   if [ "$1" = "$2" ]; then passed=$((passed + 1)); else failed=$((failed + 1)); echo "FAIL: $3: $1 != $2"; fi
 }
 
-expect "$REPORT" "MxU Slides perf check: fixture (abc1234567) on Test Mac"
+expect "$REPORT" "COAH Chorus perf check: fixture (abc1234567) on Test Mac"
 expect "$REPORT" "animateIdle.mainBusy                       5         1       5  ok"
 expect "$REPORT" "playback.mainBusy                         25        12      20  OVER"
 expect "$REPORT" "playback.timelineBodiesPerSecond          30         -       5  OVER"

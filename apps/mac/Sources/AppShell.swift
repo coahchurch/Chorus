@@ -256,19 +256,6 @@ struct ShellView: View {
     @Environment(\.confidenceMonitor) private var confidenceMonitor
 
 
-    private var workspaceImportAction: MenuAction? {
-        if let render, let controls {
-            MenuAction("workspaceImport") {
-                WorkspaceImportRunner(
-                    model: model, render: render, controls: controls,
-                    confidenceMonitor: confidenceMonitor, presets: presets
-                ).present()
-            }
-        } else {
-            nil
-        }
-    }
-
     private var isRunOnly: Bool { layout?.runOnly ?? false }
 
     private var findInLibraryAction: MenuAction? {
@@ -500,7 +487,6 @@ struct ShellView: View {
         .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .dark).colorScheme)
         .focusedSceneValue(\.libraryModel, model)
         .focusedSceneValue(\.serviceControls, controls)
-        .focusedSceneValue(\.presentWorkspaceImport, workspaceImportAction)
         .focusedSceneValue(\.presentLibrarySearch, findInLibraryAction)
 
         .focusedSceneValue(\.presentNewSlide, mode == .present ? Self.presentNewSlideAction : nil)
@@ -702,7 +688,10 @@ struct ShellView: View {
                     splitGrip(available: available)
                         .frame(height: gap)
 
-                    LibrarySidebar(model: model, render: render, layout: layout, controls: controls)
+                    LibrarySidebar(
+                        model: model, render: render, layout: layout,
+                        controls: controls, presets: presets
+                    )
                         .frame(maxHeight: .infinity)
                         .floatingPanel()
                         .inputRegion("library")
@@ -1362,7 +1351,7 @@ struct ShellView: View {
               let entry = model.indexEntry(id)
         else { return false }
 
-        return entry.kind == .presentation || entry.kind == .theme || entry.kind == .overlay
+        return entry.kind == .presentation || entry.kind == .song || entry.kind == .theme || entry.kind == .overlay
             || entry.kind == .confidenceLayout || entry.kind == .media || entry.kind == .audio
     }
 
@@ -1508,8 +1497,8 @@ struct ShellView: View {
 
             if let id = model.selectedEntryID,
                let entry = model.indexEntry(id),
-               entry.kind == .presentation || entry.kind == .media || entry.kind == .audio {
-                if entry.kind == .presentation {
+               entry.kind == .presentation || entry.kind == .song || entry.kind == .media || entry.kind == .audio {
+                if entry.kind == .presentation || entry.kind == .song {
                     PresentGridView(
                         model: model, render: render, controls: controls,
                         presentationID: entry.id, arrangementId: nil
@@ -1566,6 +1555,9 @@ struct ShellView: View {
                 )
 
                 .id("\(entry.id)::\(model.importReplaceVersion)")
+            case .song:
+                SongEditorView(model: model, songID: entry.id)
+                    .id(entry.id)
             case .service:
 
                 ServiceItemDetailView(
@@ -1598,6 +1590,7 @@ struct ShellView: View {
         if let entry = model.indexEntry(item.refId) {
             switch entry.kind {
             case .presentation: model.selectedSection = .presentations
+            case .song: model.selectedSection = .songs
             case .media: model.selectedSection = .media
             default: break
             }
@@ -1721,9 +1714,11 @@ extension FocusedValues {
 
     @Entry var presentLyricImport: MenuAction?
 
-    @Entry var presentNewSlide: MenuAction?
+    @Entry var presentSongImport: MenuAction?
 
-    @Entry var presentWorkspaceImport: MenuAction?
+    @Entry var presentOpenLyricsImport: MenuAction?
+
+    @Entry var presentNewSlide: MenuAction?
 
     @Entry var serviceControls: ServiceControls?
 

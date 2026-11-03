@@ -50,7 +50,7 @@ private let orderedOut = SheetWatch.Look(isVisible: false, alpha: 1, onScreen: t
 }
 
 @Test func sheetWatchNamesAWindowByTheFirstAppTypeInItsContent() {
-    let hosting = "SwiftUI.NSHostingView<SwiftUI.ModifiedContent<MxUSlides.NewSlideSheet, SwiftUI._FrameLayout>>"
+    let hosting = "SwiftUI.NSHostingView<SwiftUI.ModifiedContent<Chorus.NewSlideSheet, SwiftUI._FrameLayout>>"
     #expect(SheetWatch.shortName(typeDescriptions: ["SwiftUI.NSHostingController<SwiftUI.AnyView>", hosting], fallback: "NSPanel") == "NewSlideSheet")
     #expect(SheetWatch.shortName(typeDescriptions: ["SwiftUI.NSHostingView<SwiftUI.AnyView>"], fallback: "_NSAlertPanel") == "_NSAlertPanel")
 }

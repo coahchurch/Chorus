@@ -14,12 +14,6 @@ import Testing
 }
 
 @Test func onboardingContentChoicesDecideTheSeed() {
-
-    var importing = OnboardingFlow(firstRun: true)
-    importing.includeGettingStarted = false
-    importing.choose(.importWorkspace)
-    #expect(importing.step == .content && importing.choice == .importWorkspace && !importing.includeGettingStarted)
-
     var scratch = OnboardingFlow(firstRun: false)
     #expect(!scratch.includeGettingStarted)
     scratch.choose(.startFromScratch)

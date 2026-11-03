@@ -111,7 +111,7 @@ public struct SheetWatch: Equatable, Sendable {
         }
     }
 
-    public static func shortName(typeDescriptions: [String], module: String = "MxUSlides", fallback: String) -> String {
+    public static func shortName(typeDescriptions: [String], module: String = "Chorus", fallback: String) -> String {
         let prefix = module + "."
         let named = typeDescriptions.lazy.compactMap { description -> String? in
             if let range = description.range(of: prefix) {

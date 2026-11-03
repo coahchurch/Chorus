@@ -237,4 +237,168 @@ struct LyricTextImportTests {
         #expect(Reflow.labelName(of: "Misc 1") == "Misc 1")
         #expect(Reflow.labelName(of: "Instrumental") == "Instrumental")
     }
+
+    @Test func bilingualLyricsStayTogetherOnSlides() {
+        let presentation = LyricTextImporter.makePresentation(
+            "Verse 1\nவணக்கம்\nநன்றி",
+            linesPerSlide: 2,
+            secondaryLyrics: "Hello\nThanks",
+            transliteration: "Vanakkam\nNanri"
+        )
+
+        #expect(presentation.reflowSource == "Verse 1\nவணக்கம்\nHello\nVanakkam\nநன்றி\nThanks\nNanri")
+        #expect(presentation.slides.last?.objects.first?.text == "வணக்கம்\nநன்றி\nHello\nThanks\nVanakkam\nNanri")
+    }
+
+    @Test func transliterationUsesLatinScriptAndCountsLyricLines() {
+        let latin = LyricTextImporter.transliterateToLatin("தமிழ்")
+        #expect(!latin.isEmpty)
+        #expect(latin.unicodeScalars.allSatisfy { !(0x0B80...0x0BFF).contains(Int($0.value)) })
+        #expect(LyricTextImporter.lyricLineCount("Verse 1\nFirst line\n\nChorus\nSecond line") == 2)
+    }
+
+    @Test func bilingualLineLimitGroupsTheChosenNumberOfLyricLines() {
+        let presentation = LyricTextImporter.makePresentation(
+            "Verse 1\nதமிழ் ஒன்று\nதமிழ் இரண்டு\nதமிழ் மூன்று\nதமிழ் நான்கு",
+            linesPerSlide: 3,
+            transliteration: "Verse 1\nondru\nirandu\nmoondru\nnaangu"
+        )
+        let lyricSlides = presentation.slides.filter {
+            $0.objects.first?.text.contains("தமிழ்") == true
+        }
+        #expect(lyricSlides.count == 2)
+        #expect(lyricSlides[0].objects.first?.text == "தமிழ் ஒன்று\nதமிழ் இரண்டு\nதமிழ் மூன்று\nondru\nirandu\nmoondru")
+        #expect(lyricSlides[1].objects.first?.text == "தமிழ் நான்கு\nnaangu")
+    }
+
+    @Test func liveReflowKeepsTamilAndTransliterationPairsTogether() {
+        let presentation = LyricTextImporter.makePresentation(
+            "Verse 1\nதமிழ் ஒன்று\nதமிழ் இரண்டு\nதமிழ் மூன்று",
+            linesPerSlide: 3,
+            transliteration: "Verse 1\nondru\nirandu\nmoondru"
+        )
+
+        let reflowed = try! #require(
+            LyricTextImporter.reflowPresentation(presentation, linesPerSlide: 1)
+        )
+        let lyricSlides = reflowed.slides.filter { $0.objects.first?.text.contains("தமிழ்") == true }
+        #expect(lyricSlides.count == 3)
+        #expect(lyricSlides.allSatisfy {
+            $0.objects.first?.text.components(separatedBy: "\n").count == 2
+        })
+        #expect(lyricSlides.map { $0.objects[0].text }.contains("தமிழ் ஒன்று\nondru"))
+        #expect(LyricTextImporter.displayedLyricLinesPerSlide(in: presentation) == 3)
+
+        let twoLinesPerSlide = try! #require(
+            LyricTextImporter.reflowPresentation(reflowed, linesPerSlide: 2)
+        )
+        let twoLineSlides = twoLinesPerSlide.slides.filter {
+            $0.objects.first?.text.contains("தமிழ்") == true
+        }
+        #expect(twoLineSlides.first?.objects.first?.text == "தமிழ் ஒன்று\nதமிழ் இரண்டு\nondru\nirandu")
+    }
+
+    @Test func liveReflowPreservesRepeatedSongArrangement() {
+        let presentation = LyricTextImporter.makePresentation(songSelectText, linesPerSlide: 4)
+        let original = try! #require(presentation.arrangements?.first)
+        let originalNames = Dictionary(
+            (presentation.sections ?? []).map { ($0.id, $0.name) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let reflowed = try! #require(
+            LyricTextImporter.reflowPresentation(presentation, linesPerSlide: 2)
+        )
+        let rebuilt = try! #require(reflowed.arrangements?.first { $0.id == original.id })
+        let rebuiltNames = Dictionary(
+            (reflowed.sections ?? []).map { ($0.id, $0.name) },
+            uniquingKeysWith: { first, _ in first }
+        )
+
+        #expect(reflowed.defaultArrangementId == presentation.defaultArrangementId)
+        #expect(rebuilt.sectionIds.compactMap { rebuiltNames[$0] } == original.sectionIds.compactMap { originalNames[$0] })
+    }
+
+    @Test func liveReflowDoesNotTreatEnglishSectionLabelsAsTransliteration() {
+        let presentation = LyricTextImporter.makePresentation(
+            "Verse 1\nதமிழ் ஒன்று\nதமிழ் இரண்டு\nதமிழ் மூன்று",
+            linesPerSlide: 3
+        )
+        let reflowed = try! #require(
+            LyricTextImporter.reflowPresentation(presentation, linesPerSlide: 2)
+        )
+        let lyricSlides = reflowed.slides.filter { $0.objects.first?.text.contains("தமிழ்") == true }
+        #expect(lyricSlides.count == 2)
+        #expect(lyricSlides[0].objects.first?.text.components(separatedBy: "\n").count == 2)
+    }
+
+    @Test func bilingualSlidesGroupEachLanguageBeforeTheNext() {
+        let presentation = LyricTextImporter.makePresentation(
+            "Verse 1\nதமிழ் ஒன்று\nதமிழ் இரண்டு\nதமிழ் மூன்று\nதமிழ் நான்கு",
+            linesPerSlide: 2,
+            transliteration: "Verse 1\none\n two\nthree\nfour"
+        )
+        let lyricSlides = presentation.slides.filter {
+            $0.objects.first?.text.contains("தமிழ்") == true
+        }
+
+        #expect(lyricSlides.map { $0.objects.first?.text } == [
+            "தமிழ் ஒன்று\nதமிழ் இரண்டு\none\ntwo",
+            "தமிழ் மூன்று\nதமிழ் நான்கு\nthree\nfour",
+        ])
+    }
+
+    @Test func unevenBilingualLinesStayGroupedWithoutCreatingTransliterationOnlySlides() {
+        let presentation = LyricTextImporter.makePresentation(
+            "Verse 1\nதமிழ் ஒன்று\nதமிழ் இரண்டு\nதமிழ் மூன்று",
+            linesPerSlide: 2,
+            transliteration: "Verse 1\none\ntwo"
+        )
+        let lyricSlides = presentation.slides.filter {
+            $0.objects.first?.text.contains("தமிழ்") == true
+        }
+
+        #expect(lyricSlides.map { $0.objects.first?.text } == [
+            "தமிழ் ஒன்று\nதமிழ் இரண்டு\none\ntwo",
+            "தமிழ் மூன்று",
+        ])
+
+        let reflowed = try! #require(
+            LyricTextImporter.reflowPresentation(presentation, linesPerSlide: 2)
+        )
+        let reflowedLyrics = reflowed.slides.filter {
+            $0.objects.first?.text.contains("தமிழ்") == true
+        }
+        #expect(reflowedLyrics.map { $0.objects.first?.text } == [
+            "தமிழ் ஒன்று\nதமிழ் இரண்டு\none\ntwo",
+            "தமிழ் மூன்று",
+        ])
+    }
+
+    @Test func unevenSectionsDoNotShiftTransliterationIntoTheNextVerse() {
+        let presentation = LyricTextImporter.makePresentation(
+            "Verse 1\nதமிழ் ஒன்று\nதமிழ் இரண்டு\n\nVerse 2\nதமிழ் மூன்று\nதமிழ் நான்கு",
+            linesPerSlide: 2,
+            transliteration: "Verse 1\none\n\nVerse 2\nthree\nfour"
+        )
+
+        func lyricSlideTexts(_ presentation: Presentation) -> [String] {
+            presentation.slides.compactMap { slide in
+                guard let text = slide.objects.first?.text, text.contains("தமிழ்") else { return nil }
+                return text
+            }
+        }
+
+        #expect(lyricSlideTexts(presentation) == [
+            "தமிழ் ஒன்று\nதமிழ் இரண்டு\none",
+            "தமிழ் மூன்று\nதமிழ் நான்கு\nthree\nfour",
+        ])
+
+        let reflowed = try! #require(
+            LyricTextImporter.reflowPresentation(presentation, linesPerSlide: 2)
+        )
+        #expect(lyricSlideTexts(reflowed) == [
+            "தமிழ் ஒன்று\nதமிழ் இரண்டு\none",
+            "தமிழ் மூன்று\nதமிழ் நான்கு\nthree\nfour",
+        ])
+    }
 }

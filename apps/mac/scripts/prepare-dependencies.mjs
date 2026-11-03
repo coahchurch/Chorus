@@ -1,19 +1,14 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Share the checked-in SwiftPM pins with the generated Xcode project. The
-// ProImport manifest includes SwiftProtobuf only when its generated sources exist.
+// Share the checked-in SwiftPM pins with the generated Xcode project.
 const macDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packages = [
   { name: 'LocalAPI', required: ['flyingfox'] },
   { name: 'StreamEngine', required: ['haishinkit.swift', 'logboard'] },
 ];
-if (existsSync(resolve(macDir, 'Packages/ProImport/Sources/ProImport/Generated'))) {
-  packages.push({ name: 'ProImport', required: ['swift-protobuf'] });
-}
-
 const pins = new Map();
 for (const { name, required } of packages) {
   const lock = JSON.parse(readFileSync(resolve(macDir, 'Packages', name, 'Package.resolved'), 'utf8'));
@@ -38,7 +33,7 @@ for (const { name, required } of packages) {
   }
 }
 
-const destination = resolve(macDir, 'MxUSlides.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved');
+const destination = resolve(macDir, 'Chorus.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved');
 const expected = {
   pins: [...pins.values()].sort((a, b) => a.identity.localeCompare(b.identity)),
   version: 2,

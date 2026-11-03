@@ -5,12 +5,12 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>MxU Slides</string>
+	<string>Chorus</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>MxU Slides Presentation</string>
+			<string>Chorus Presentation</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -27,8 +27,13 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>ta</string>
+	</array>
 	<key>CFBundleName</key>
-	<string>MxU Slides</string>
+	<string>Chorus</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -42,11 +47,11 @@
 	<key>MXUGitCommit</key>
 	<string>$(MXU_GIT_COMMIT)</string>
 	<key>NSCameraUsageDescription</key>
-	<string>MxU Slides shows cameras and capture devices on your screens as live video inputs.</string>
+	<string>Chorus shows cameras and capture devices on your screens as live video inputs.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>MxU Slides uses your local network to discover and receive NDI video sources, and announces its Local API so remotes and control surfaces can find this Mac.</string>
+	<string>Chorus uses your local network to discover and receive NDI video sources, and announces its Local API so remotes and control surfaces can find this Mac.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>MxU Slides can include a capture device's audio when it is used as a live input.</string>
+	<string>Chorus can include a capture device's audio when it is used as a live input.</string>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
@@ -56,13 +61,14 @@
 				<string>public.archive</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>MxU Slides Presentation</string>
+			<string>Chorus Presentation</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.example.mxuslides.presentation</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
+					<string>chorus</string>
 					<string>mxuslides</string>
 				</array>
 			</dict>

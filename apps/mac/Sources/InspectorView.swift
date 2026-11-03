@@ -16,6 +16,7 @@ struct InspectorView: View {
                     case .media: mediaForm
                     case .audio: audioForm
                     case .presentation: presentationForm
+                    case .song: Text("Songs are edited in the song editor.")
                     case .playlist: EmptyView()
                     case .theme: Text("Themes are edited in the slide editor.")
                     case .service: Text("Services are edited in the Service planner.")

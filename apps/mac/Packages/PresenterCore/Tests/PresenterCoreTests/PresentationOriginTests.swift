@@ -10,7 +10,7 @@ import Testing
     @Test func aStampedOriginReadsAsWords() {
         #expect(PresentationOrigin(.chartFile, detail: "Chord Chart.pdf").label
             == "Chord chart file · Chord Chart.pdf")
-        #expect(PresentationOrigin(.madeHere, detail: " ").label == "Made in MxU Slides")
+        #expect(PresentationOrigin(.madeHere, detail: " ").label == "Made in Chorus")
         #expect(deck(PresentationOrigin(.songSelect, detail: "Way Maker")).originLabel == "SongSelect · Way Maker")
     }
 

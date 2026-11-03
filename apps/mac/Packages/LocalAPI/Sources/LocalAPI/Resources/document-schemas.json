@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 149,
+  "schemaVersion": 150,
   "schemas": {
     "SlideObjectKind": {
       "type": "string",
@@ -1599,6 +1599,12 @@
         },
         "songMap": {
           "$ref": "#/components/schemas/SongMap"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
@@ -2194,6 +2200,75 @@
       "required": [
         "id",
         "name"
+      ]
+    },
+    "SongLyricsPart": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "primaryLines": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "transliterationLines": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "primaryLines",
+        "transliterationLines"
+      ]
+    },
+    "SongLyrics": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "author": {
+          "type": "string"
+        },
+        "copyright": {
+          "type": "string"
+        },
+        "primaryLanguage": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "tempo": {
+          "type": "number"
+        },
+        "ccliNumber": {
+          "type": "integer"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SongLyricsPart"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "parts"
       ]
     },
     "Service": {

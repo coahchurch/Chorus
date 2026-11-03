@@ -3,6 +3,7 @@ import Observation
 @Observable
 public final class DocumentKindVersions {
     private var presentation = 0
+    private var song = 0
     private var service = 0
     private var theme = 0
     private var media = 0
@@ -43,6 +44,7 @@ public final class DocumentKindVersions {
     public subscript(kind: DocumentKind) -> Int {
         switch kind {
         case .presentation: presentation
+        case .song: song
         case .service: service
         case .theme: theme
         case .media: media
@@ -78,6 +80,7 @@ public final class DocumentKindVersions {
         unobserved[kind, default: 0] += 1
         switch kind {
         case .presentation: presentation += 1
+        case .song: song += 1
         case .service: service += 1
         case .theme: theme += 1
         case .media: media += 1

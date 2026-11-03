@@ -197,7 +197,7 @@ struct ServiceContinuousView: View {
             } header: {
                 CardRefresh(model: model) { unlinkedCard(item) }
             }
-        case .presentation:
+        case .presentation, .song:
             stickySection(item) {
                 CardRefresh(model: model) { presentationBodyFresh(item) }
             } header: {
@@ -543,15 +543,22 @@ struct ServiceContinuousView: View {
 
                 CardSlidePosition(controls: controls, itemID: item.id, slideCount: slides.count)
 
-                PresentationSettingsButton(
-                    model: model, render: render, controls: controls, presentation: presentation,
-                    isPresented: Binding(
-                        get: { settingsPopoverItemID == item.id },
-                        set: { settingsPopoverItemID = $0 ? item.id : nil }))
+                if presentation.presentationKind != .song {
+                    PresentationSettingsButton(
+                        model: model, render: render, controls: controls, presentation: presentation,
+                        isPresented: Binding(
+                            get: { settingsPopoverItemID == item.id },
+                            set: { settingsPopoverItemID = $0 ? item.id : nil }))
+                        .inputRegion("card settings: \(displayName(item))", notesClicks: true)
+                }
 
-                .inputRegion("card settings: \(displayName(item))", notesClicks: true)
+                LiveLyricLinesControl(
+                    model: model, presentation: presentation, controls: controls,
+                    contextID: item.id
+                )
+                    .id(presentation.id)
 
-                if controls != nil {
+                if controls != nil, presentation.presentationKind != .song {
                     PresentationTimelineButton(
                         itemID: item.id,
                         hasTimeline: PresentationTimelines.timeline(for: item.arrangementId, in: presentation) != nil)
@@ -580,7 +587,9 @@ struct ServiceContinuousView: View {
                         )
                     }
                 }
-                SongKeyChip(model: model, controls: controls, presentation: presentation)
+                if presentation.presentationKind != .song {
+                    SongKeyChip(model: model, controls: controls, presentation: presentation)
+                }
             } accessory: {
 
                 if SlideSceneBuilder.showsArrangements(for: presentation) {
@@ -611,7 +620,7 @@ struct ServiceContinuousView: View {
                 if !runOnly {
                     arrangementMenu(item, presentation)
                     Button("Presentation Settings…") { settingsPopoverItemID = item.id }
-                    Button("Edit…") { openInEditor(presentation.id) }
+                    Button("Edit…") { openInEditor(item.refId) }
                 }
             }
         } else {
@@ -719,7 +728,7 @@ struct ServiceContinuousView: View {
     private func presentationCardBody(
         _ item: ServiceItem, _ presentation: Presentation, _ slides: [Slide]
     ) -> some View {
-        let theme = model.theme(presentation.themeId)
+        let theme = model.theme(for: presentation)
 
         return VStack(alignment: .leading, spacing: 10) {
 
@@ -878,7 +887,8 @@ struct ServiceContinuousView: View {
 
     private func firePositions(_ service: Service) -> [FirePosition] {
         var positions: [FirePosition] = []
-        for item in model.runOfShow(service) where item.itemKind == .presentation {
+        for item in model.runOfShow(service)
+        where item.itemKind == .presentation || item.itemKind == .song {
 
             guard let presentation = model.presentation(item.refId) else { continue }
             let slides = model.arrangedSlides(presentation, arrangementId: item.arrangementId)

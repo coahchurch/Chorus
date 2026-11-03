@@ -518,8 +518,8 @@ extension LibrarySection {
         case .services: .services
         case .presentations: .presentations
         case .overlays: .overlays
-        case .media: .media
-        case .audio: .audio
+        case .media, .background: .media
+        case .audio, .songs: .audio
         case .themes: .themes
         case .confidence: .confidence
         }

@@ -201,6 +201,11 @@ final class LocalAPIController {
         return "http://\(hostPort)/docs"
     }
 
+    var remoteURL: String {
+        let hostPort = lanAddress ?? "localhost:\(port)"
+        return "http://\(hostPort)/remote"
+    }
+
     func start() {
         guard serverTask == nil else { return }
         lastError = nil
@@ -208,8 +213,8 @@ final class LocalAPIController {
 
         resolveDefaultKey()
         let info = APIServerInfo(
-            name: Host.current().localizedName ?? "MxU Slides",
-            product: "MxU Slides",
+            name: Host.current().localizedName ?? "Chorus",
+            product: "Chorus",
             apiVersion: OpenAPIDocument.apiVersion,
             schemaVersion: OpenAPIDocument.documentSchemaVersion()
         )

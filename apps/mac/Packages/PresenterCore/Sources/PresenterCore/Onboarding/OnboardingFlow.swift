@@ -13,7 +13,7 @@ public struct OnboardingFlow: Equatable, Sendable {
     }
 
     public enum ContentChoice: Sendable {
-        case importWorkspace, startFromScratch
+        case startFromScratch
     }
 
     public private(set) var step: Step = .content

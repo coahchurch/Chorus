@@ -10,8 +10,16 @@ struct ImportLyricsSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
+    @State private var secondaryLyrics = ""
+    @State private var transliteration = ""
+    @State private var usesSecondaryLanguage = false
+    @State private var usesTransliteration = false
+    @State private var transliterationSource = "primary"
 
     @State private var loadedFrom: PresentationOrigin?
+    @State private var loadedCCLI: CCLIInfo?
+    @State private var loadedMusicKey: String?
+    @State private var loadError: String?
     @State private var title = ""
     @State private var linesPerSlide = 2
 
@@ -32,6 +40,8 @@ struct ImportLyricsSheet: View {
         var lyricLines: Set<String>
         var themeId: String
         var design: String
+        var secondaryLyrics: String
+        var transliteration: String
     }
 
     struct Preview: Sendable {
@@ -51,7 +61,22 @@ struct ImportLyricsSheet: View {
     }
 
     private var input: Input {
-        Input(text: text, linesPerSlide: linesPerSlide, lyricLines: lyricLines, themeId: themeId, design: design)
+        Input(
+            text: text, linesPerSlide: linesPerSlide, lyricLines: lyricLines,
+            themeId: themeId, design: design,
+            secondaryLyrics: usesSecondaryLanguage ? secondaryLyrics : "",
+            transliteration: usesTransliteration ? transliteration : "")
+    }
+
+    private var lineCountMismatch: Bool {
+        let primaryCount = LyricTextImporter.lyricLineCount(text)
+        guard primaryCount > 0 else { return false }
+        if usesSecondaryLanguage, !secondaryLyrics.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           LyricTextImporter.lyricLineCount(secondaryLyrics) != primaryCount {
+            return true
+        }
+        return usesTransliteration && !transliteration.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && LyricTextImporter.lyricLineCount(transliteration) != primaryCount
     }
 
     var body: some View {
@@ -61,7 +86,7 @@ struct ImportLyricsSheet: View {
                     .font(.headline)
                 Spacer()
                 if let format = preview?.format {
-                    Text(Self.formatCaption(format))
+                    Text(LocalizedStringKey(Self.formatCaption(format)))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -79,6 +104,17 @@ struct ImportLyricsSheet: View {
                 .padding(12)
         }
         .frame(minWidth: 940, minHeight: 600)
+        .alert(
+            "Couldn’t load lyrics",
+            isPresented: Binding(
+                get: { loadError != nil },
+                set: { if !$0 { loadError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { loadError = nil }
+        } message: {
+            Text(loadError ?? "")
+        }
         .task(id: input) {
             let input = input
             let built = await Task.detached(priority: .userInitiated) { Self.build(input) }.value
@@ -103,6 +139,59 @@ struct ImportLyricsSheet: View {
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator))
             if let lines = preview?.chordLines, !lines.isEmpty {
                 chordLineList(lines)
+            }
+            Toggle("Add a second language", isOn: $usesSecondaryLanguage)
+                .toggleStyle(.checkbox)
+            if usesSecondaryLanguage {
+                TextEditor(text: $secondaryLyrics)
+                    .font(.body)
+                    .frame(minHeight: 100)
+                    .overlay(alignment: .topLeading) {
+                        if secondaryLyrics.isEmpty {
+                            Text("Paste the second language in matching line order.")
+                                .foregroundStyle(.tertiary)
+                                .padding(.top, 8)
+                                .padding(.leading, 5)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator))
+            }
+            Toggle("Add transliteration", isOn: $usesTransliteration)
+                .toggleStyle(.checkbox)
+            if usesTransliteration {
+                HStack {
+                    Picker("From", selection: $transliterationSource) {
+                        Text("Primary lyrics").tag("primary")
+                        Text("Second language").tag("secondary")
+                    }
+                    .labelsHidden()
+                    .disabled(!usesSecondaryLanguage)
+                    Button("Generate") {
+                        let source = transliterationSource == "secondary" ? secondaryLyrics : text
+                        let normalized = LyricTextImporter.normalize(source).body
+                        transliteration = LyricTextImporter.transliterateToLatin(normalized)
+                    }
+                    .disabled((transliterationSource == "secondary" ? secondaryLyrics : text).isEmpty)
+                }
+                TextEditor(text: $transliteration)
+                    .font(.body)
+                    .frame(minHeight: 100)
+                    .overlay(alignment: .topLeading) {
+                        if transliteration.isEmpty {
+                            Text("Generate it, then edit as needed—or enter it yourself.")
+                                .foregroundStyle(.tertiary)
+                                .padding(.top, 8)
+                                .padding(.leading, 5)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator))
+            }
+            if lineCountMismatch {
+                Label("Language lines must match the primary lyrics.", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
             }
         }
         .padding(12)
@@ -194,7 +283,7 @@ struct ImportLyricsSheet: View {
     private var footer: some View {
         HStack(spacing: 14) {
             Button("Load File…", action: loadFile)
-                .help("A lyrics or ChordPro file, or a chord chart PDF")
+                .help("Lyrics, ChordPro, OpenLyrics XML, or a chord chart PDF")
             TextField("Title (optional — SongSelect and ChordPro carry their own)", text: $title)
                 .textFieldStyle(.roundedBorder)
                 .frame(minWidth: 200)
@@ -206,7 +295,7 @@ struct ImportLyricsSheet: View {
                 .keyboardShortcut(.cancelAction)
             Button("Import", action: importNow)
                 .keyboardShortcut(.defaultAction)
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || lineCountMismatch)
         }
     }
 
@@ -223,7 +312,9 @@ struct ImportLyricsSheet: View {
         let trimmed = input.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let presentation = LyricTextImporter.makePresentation(
             input.text, id: "lyrics-import-preview", themeId: input.themeId, themeSlideName: input.design,
-            linesPerSlide: input.linesPerSlide, lyricLines: input.lyricLines)
+            linesPerSlide: input.linesPerSlide, lyricLines: input.lyricLines,
+            secondaryLyrics: input.secondaryLyrics.isEmpty ? nil : input.secondaryLyrics,
+            transliteration: input.transliteration.isEmpty ? nil : input.transliteration)
         let names = Dictionary(
             (presentation.sections ?? []).map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
         var groups: [(sectionID: String?, slides: [Slide])] = []
@@ -251,19 +342,56 @@ struct ImportLyricsSheet: View {
     private func loadFile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.plainText, .pdf]
-            + ["cho", "chopro", "crd", "chordpro"].compactMap { UTType(filenameExtension: $0) }
+            + ["cho", "chopro", "crd", "chordpro", "xml"].compactMap { UTType(filenameExtension: $0) }
         panel.begin { response in
             guard response == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return }
             Task { @MainActor in
-                let contents = await Task.detached { ChordChartPDF.importText(from: data, filename: url.lastPathComponent) }.value
-                if let contents {
+                let result = await Task.detached {
+                    () -> (
+                        songs: [OpenLyricsImporter.Song]?, text: String?, title: String?,
+                        ccli: CCLIInfo?, musicKey: String?, error: String?
+                    ) in
+                    if url.pathExtension.lowercased() == "xml" {
+                        do {
+                            let songs = try OpenLyricsImporter.parseSongs(data)
+                            guard let song = songs.first else {
+                                return (nil, nil, nil, nil, nil, "No songs were found.")
+                            }
+                            return (songs, song.lyricsText, song.title, song.ccli, song.musicKey, nil)
+                        } catch {
+                            return (nil, nil, nil, nil, nil, error.localizedDescription)
+                        }
+                    }
+                    return (
+                        nil, ChordChartPDF.importText(from: data, filename: url.lastPathComponent),
+                        nil, nil, nil, nil
+                    )
+                }.value
+                if let songs = result.songs {
+                    let imported = await model.importOpenLyricsSongs(songs, sourceName: url.lastPathComponent)
+                    var summary = "Imported \(imported.ids.count) OpenLyrics song\(imported.ids.count == 1 ? "" : "s") from \(url.lastPathComponent)"
+                    if !imported.failures.isEmpty {
+                        summary += " — \(imported.failures.count) failed: \(imported.failures.prefix(3).joined(separator: "; "))"
+                    }
+                    model.noteImportSummary(summary)
+                    await model.client.settled()
+                    dismiss()
+                    if let id = imported.ids.first { onImported(id) }
+                    return
+                }
+                if let contents = result.text {
                     text = contents
+                    loadedCCLI = result.ccli
+                    loadedMusicKey = result.musicKey
+                    if title.isEmpty, let importedTitle = result.title { title = importedTitle }
                     loadedFrom = PresentationOrigin(
                         url.pathExtension.lowercased() == "pdf" ? .chartFile : .lyricsFile,
                         detail: url.lastPathComponent)
-                    if title.isEmpty, !Self.namesItsTitle(contents) { title = url.deletingPathExtension().lastPathComponent }
+                    if title.isEmpty, !Self.namesItsTitle(contents) {
+                        title = url.deletingPathExtension().lastPathComponent
+                    }
                 } else {
-                    NSSound.beep()
+                    loadError = result.error ?? "Could not extract lyrics from \(url.lastPathComponent)."
                 }
             }
         }
@@ -278,6 +406,10 @@ struct ImportLyricsSheet: View {
             themeId: themeId,
             themeSlideName: design,
             lyricLines: lyricLines,
+            secondaryLyrics: usesSecondaryLanguage ? secondaryLyrics : nil,
+            transliteration: usesTransliteration ? transliteration : nil,
+            ccli: loadedCCLI,
+            musicKey: loadedMusicKey,
             origin: loadedFrom ?? PresentationOrigin(.pastedLyrics)
         )
         dismiss()

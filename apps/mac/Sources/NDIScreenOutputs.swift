@@ -8,8 +8,19 @@ final class NDIScreenOutputs {
 
     private(set) var controllers: [UUID: NDIOutputController] = [:]
     private static let defaultsKey = "ndi.screenBackings"
+    private static let lowerThirdScreenKey = "ndi.lowerThird.screenID"
+    private static let lowerThirdThemeKey = "ndi.lowerThird.themeID"
 
     private init() {}
+
+    var lowerThirdScreenID: UUID? {
+        UserDefaults.standard.string(forKey: Self.lowerThirdScreenKey)
+            .flatMap(UUID.init(uuidString:))
+    }
+
+    var lowerThirdThemeID: String? {
+        UserDefaults.standard.string(forKey: Self.lowerThirdThemeKey)
+    }
 
     func status(for screenID: UUID) -> NDIOutputController.Status? {
         controllers[screenID]?.status
@@ -74,6 +85,36 @@ final class NDIScreenOutputs {
         persist()
     }
 
+    func configureLowerThird(themeID: String, render: RenderContext) throws -> UUID {
+        guard !themeID.isEmpty else { throw LowerThirdOutputError.missingTheme }
+        let screenID = lowerThirdScreenID ?? UUID()
+        if !render.outputs.placeholderScreens.contains(where: { $0.id == screenID }) {
+            guard render.outputs.addPlaceholderScreen(
+                id: screenID,
+                name: "Lower Thirds NDI",
+                width: 1920,
+                height: 1080,
+                framesPerSecond: 30
+            ) != nil else {
+                throw LowerThirdOutputError.couldNotCreateScreen
+            }
+        }
+
+        UserDefaults.standard.set(screenID.uuidString, forKey: Self.lowerThirdScreenKey)
+        UserDefaults.standard.set(themeID, forKey: Self.lowerThirdThemeKey)
+        enable(screenID: screenID, render: render)
+        guard controllers[screenID] != nil else { throw LowerThirdOutputError.couldNotStart }
+        return screenID
+    }
+
+    func disableLowerThird(render: RenderContext) {
+        guard let screenID = lowerThirdScreenID else { return }
+        disable(screenID: screenID)
+        render.outputs.removePlaceholderScreen(id: screenID)
+        UserDefaults.standard.removeObject(forKey: Self.lowerThirdScreenKey)
+        UserDefaults.standard.removeObject(forKey: Self.lowerThirdThemeKey)
+    }
+
     func restore(render: RenderContext) {
         let stored = UserDefaults.standard.stringArray(forKey: Self.defaultsKey) ?? []
         for raw in stored {
@@ -85,5 +126,19 @@ final class NDIScreenOutputs {
     private func persist() {
         UserDefaults.standard.set(
             controllers.keys.map(\.uuidString).sorted(), forKey: Self.defaultsKey)
+    }
+}
+
+private enum LowerThirdOutputError: LocalizedError {
+    case missingTheme
+    case couldNotCreateScreen
+    case couldNotStart
+
+    var errorDescription: String? {
+        switch self {
+        case .missingTheme: "Choose a slide theme for the lower-third output."
+        case .couldNotCreateScreen: "The dedicated lower-third output could not be created."
+        case .couldNotStart: "The dedicated lower-third NDI output could not be started."
+        }
     }
 }

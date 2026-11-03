@@ -4,7 +4,7 @@ public enum WelcomeDeck {
     public static let presentationID = "welcome.presentation"
     public static let serviceID = "welcome.service"
     public static let serviceItemID = "welcome.service.item"
-    public static let presentationName = "Welcome to MxU Slides"
+    public static let presentationName = "Welcome to Chorus"
     public static let serviceName = "Getting Started"
 
     struct Page: Equatable {
@@ -15,7 +15,7 @@ public enum WelcomeDeck {
     }
 
     static let pages: [Page] = [
-        Page(key: "welcome", kicker: "Getting Started", title: "Welcome to MxU Slides",
+        Page(key: "welcome", kicker: "Getting Started", title: "Welcome to Chorus",
              body: "This deck is a two-minute tour. Click this slide to take it live, then press the Right Arrow or Space for the next one."),
         Page(key: "live", kicker: "Step 1", title: "Click a slide to go live",
              body: "Whatever you click shows on your audience screen. Left and Right Arrow move through the deck, and the Clear controls take layers back off the screen."),
@@ -26,7 +26,7 @@ public enum WelcomeDeck {
         Page(key: "edit", kicker: "Step 4", title: "Edit and restyle",
              body: "Switch to Edit to change words, fonts and layout. Themes restyle a whole presentation at once; four starter themes and their overlays are already in your library."),
         Page(key: "import", kicker: "Step 5", title: "Bring what you have",
-             body: "File › Import brings in a ProPresenter workspace, single ProPresenter files, PowerPoint decks and lyrics. Imports never overwrite what is already here without asking."),
+             body: "File › Import brings in PowerPoint decks, Chorus presentations and lyrics. Imports never overwrite what is already here without asking."),
         Page(key: "feedback", kicker: "Beta", title: "Tell us what broke",
              body: "Help › Report a Problem saves your note with diagnostics to Downloads. Help › Show Welcome reopens setup, and this deck is yours to delete."),
     ]

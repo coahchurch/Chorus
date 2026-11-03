@@ -59,11 +59,18 @@ struct ContentView: View {
                 Text(what).font(.caption).foregroundStyle(.secondary)
             }
         case .failed(let message):
-            Text(message)
-                .font(.caption)
-                .foregroundStyle(.red)
-                .lineLimit(4)
-            Button("Reset") { soak.stop(render: render) }
+            VStack(alignment: .leading, spacing: 8) {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(6)
+                    .textSelection(.enabled)
+                HStack(spacing: 8) {
+                    Button("Copy error") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(message, forType: .string) }
+                    Button("Retry") { Task { await soak.start(render: render) } }
+                    Button("Reset") { soak.stop(render: render) }
+                }
+            }
         case .running:
             Button("Stop soak test") { soak.stop(render: render) }
             if let startedAt = soak.startedAt {
@@ -100,8 +107,11 @@ struct ContentView: View {
     }
 
     private var canvas: some View {
-        SceneCanvas(render: render)
-            .aspectRatio(render.scene.canvasSize, contentMode: .fit)
+        let size = render.scene.canvasSize
+        let valid = size.width > 0 && size.height > 0
+        let ratio = valid ? size : CGSize(width: 16, height: 9)
+        return SceneCanvas(render: render)
+            .aspectRatio(ratio, contentMode: .fit)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(.black)
     }
@@ -112,11 +122,12 @@ struct ContentView: View {
                 !(render.scene.layers.first { $0.id == layerID }?.isHidden ?? false)
             },
             set: { visible in
-                guard let index = render.scene.layers.firstIndex(where: { $0.id == layerID }) else {
-                    return
+                Task { @MainActor in
+                    guard let index = render.scene.layers.firstIndex(where: { $0.id == layerID }) else { return }
+                    render.scene.layers[index].isHidden = !visible
                 }
-                render.scene.layers[index].isHidden = !visible
             }
         )
     }
 }
+

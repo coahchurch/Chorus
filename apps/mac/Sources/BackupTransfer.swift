@@ -58,7 +58,7 @@ struct BackupTransferRunner {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.message = "Choose an MxU Slides library backup (.mxubackup)"
+        panel.message = "Choose a Chorus library backup (.mxubackup)"
         panel.prompt = "Import Backup"
         panel.begin { response in
             if response == .OK, let url = panel.url {
@@ -120,7 +120,7 @@ struct BackupTransferRunner {
         if result.mediaFilesCopied > 0 { lines.append("\(result.mediaFilesCopied) media files") }
         if result.fontsCopied > 0 { lines.append("\(result.fontsCopied) imported fonts") }
         if result.settingsStaged > 0 {
-            lines.append("\(result.settingsStaged) app settings — quit and reopen MxU Slides to apply them")
+            lines.append("\(result.settingsStaged) app settings — quit and reopen Chorus to apply them")
         }
         return lines
     }

@@ -44,13 +44,15 @@ import Testing
         func route(_ name: String) -> ServiceItemChooserLogic.ImportRoute? {
             ServiceItemChooserLogic.route(URL(fileURLWithPath: "/tmp/\(name)"))
         }
-        #expect(route("Song.mxuslides") == .slidesFile)
-        #expect(route("Song.pro") == .proPresenter)
-        #expect(route("Library.probundle") == .proPresenter)
+        #expect(route("Song.chorus") == .slidesFile)
+        #expect(route("Song.mxuslides") == .slidesFile, "legacy Chorus files remain importable")
+        #expect(route("Song.pro") == nil)
+        #expect(route("Library.probundle") == nil)
         #expect(route("Deck.PPTX") == .powerPoint)
         #expect(route("Song.cho") == .lyrics)
         #expect(route("Song.txt") == .lyrics)
         #expect(route("Chart.pdf") == .lyrics)
+        #expect(route("Song.xml") == .openLyrics)
         #expect(route("Loop.mov") == .media)
         #expect(route("Still.png") == .media)
         #expect(route("Track.mp3") == nil, "music stays in the Music library's import")
@@ -62,7 +64,7 @@ import Testing
         let song = URL(fileURLWithPath: "/tmp/Song.txt"), still = URL(fileURLWithPath: "/tmp/Still.png")
         let notes = URL(fileURLWithPath: "/tmp/Notes.md")
         #expect(ServiceItemChooserLogic.refusal([song, still]) == nil, "Add makes a row of each")
-        #expect(ServiceItemChooserLogic.refusal([notes]) == "MxU Slides can't import Notes.md")
+        #expect(ServiceItemChooserLogic.refusal([notes]) == "Chorus can't import Notes.md")
         #expect(ServiceItemChooserLogic.refusal([notes, still]) == nil, "the usable ones go in")
     }
 
@@ -86,15 +88,36 @@ import Testing
         let chooser = try source("ServiceItemChooser.swift")
         #expect(chooser.contains("@State private var tab: ServiceItemChooserLogic.Tab = .library"), "always opens on From Library")
         #expect(chooser.contains("case .slidesFile: await importPresentationFiles(files)"))
-        #expect(chooser.contains("case .proPresenter: await runProPresenterImport(files)"))
         #expect(chooser.contains("case .powerPoint: await runPowerPointImport(files)"))
         #expect(chooser.contains("case .lyrics: await importLyricsFiles(files)"))
+        #expect(chooser.contains("case .openLyrics: await importOpenLyricsFiles(files)"))
         #expect(chooser.contains("case .media: await importFiles(files)"))
         #expect(chooser.contains("await client.settled()"), "imports are listed before a row reads them")
         #expect(chooser.contains("ServiceItemChooserLogic.refusal(urls)"), "drops and picks go through the one rule")
         #expect(!chooser.contains("NSSound"), "never a system sound: a skipped file is named in the pane")
         let library = try source("LibraryView.swift")
-        #expect(library.contains("await model.runProPresenterImport(urls)") && library.contains("await model.runPowerPointImport(urls)"),
-                "the File menu runs the same import flows")
+        #expect(!library.contains("runProPresenterImport") && library.contains("await model.runPowerPointImport(urls)"),
+                "ProPresenter imports are removed and PowerPoint keeps its import flow")
+        #expect(library.contains("Button(\"Import OpenLyrics Songs…\")")
+                    && library.contains("presentOpenLyricsImport?()")
+                    && library.contains("ImportOpenLyricsSheet(model: model"),
+                "OpenLyrics has a dedicated File menu action and import sheet")
+        #expect(library.contains("Import Lyrics to Songs…")
+                    && library.contains("Import Lyrics to Slides…"),
+                "menu bar separates song imports from slide imports")
+        #expect(!library.contains("Import from ProPresenter")
+                    && !library.contains("Import ProPresenter Workspace"),
+                "ProPresenter import is not exposed in the menu bar")
+        let openLyrics = try source("ImportOpenLyricsSheet.swift")
+        #expect(openLyrics.contains("await model.importOpenLyricsSongs(")
+                    && openLyrics.contains("linesPerSlide: 4")
+                    && openLyrics.contains("includeTransliteration: includeTransliteration")
+                    && openLyrics.contains("onProgress:"),
+                "songbook imports preserve transliteration, report progress, and defer line count to Present")
+        let importer = try source("ServiceItemChooser.swift")
+        #expect(importer.contains("LibraryClient.bulkChunkSize")
+                    && importer.contains("Task.detached(priority: .userInitiated)")
+                    && importer.contains("await Task.yield()"),
+                "large songbooks are prepared off the UI thread and imported in yielding batches")
     }
 }

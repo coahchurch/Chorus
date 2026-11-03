@@ -60,10 +60,10 @@ public enum OpenAPIDocument {
         return .object([
             "openapi": "3.1.0",
             "info": .object([
-                "title": "MxU Slides Local API",
+                "title": "Chorus Local API",
                 "version": .string(apiVersion),
                 "description": .string(
-                    "Local show-control and content API served by the MxU Slides Mac app. "
+                    "Local show-control and content API served by the Chorus Mac app. "
                         + "Three capability classes: view, control, and create/edit — scoped "
                         + "bearer tokens minted in Settings › API. Document payloads follow the "
                         + "app's schema (version \(schemaVersion))."
@@ -414,7 +414,7 @@ public enum AsyncAPIDocument {
         return .object([
             "asyncapi": "2.6.0",
             "info": .object([
-                "title": "MxU Slides Local API — WebSocket",
+                "title": "Chorus Local API — WebSocket",
                 "version": .string(OpenAPIDocument.apiVersion),
                 "description": .string(
                     "Connect to /v1/ws?token=SECRET. Send {\"type\":\"subscribe\",\"topics\":[…]} "

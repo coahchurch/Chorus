@@ -29,6 +29,14 @@ private func audio(_ id: String) -> AudioItem {
     AudioItem(id: id, name: "Song", fileHash: "hash-\(id)", fileName: "\(id).m4a", tags: [], favorite: false, durationSeconds: 60)
 }
 
+private func lyrics(_ id: String, folder: String? = nil, folderId: String? = nil) -> SongLyrics {
+    SongLyrics(
+        id: id, name: "Lyrics \(id)",
+        parts: [SongLyricsPart(id: "part-\(id)", label: "Verse 1", primaryLines: ["First line"])],
+        folder: folder, folderId: folderId
+    )
+}
+
 @LibraryActor private func makeLibrary(_ engine: LibraryEngine) throws {
     try engine.create(deck("big", slides: 300))
     try engine.create(deck("d", slides: 3))
@@ -128,6 +136,24 @@ private func audio(_ id: String) -> AudioItem {
         #expect(Array(refiled.refused.keys) == [SyncLedger.Key(kind: .presentation, id: "gone")])
         #expect(refiled.batch.changes.map(\.id) == ["ov"])
         #expect(try stored(Overlay.self, root, "ov").folder == "Bugs")
+    }
+
+    @LibraryActor @Test func aSongCanBeRefiledWithoutChangingItsLyrics() throws {
+        let root = makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let engine = LibraryEngine(rootURL: root)
+        try engine.bootstrap()
+        let original = lyrics("song", folder: "Unsorted")
+        try engine.create(original)
+
+        let result = try engine.refile([
+            LibraryRefile(kind: .song, id: original.id, folder: "Songs/Hymns", folderId: "hymns")
+        ])
+
+        #expect(result.refused.isEmpty)
+        #expect(try stored(SongLyrics.self, root, original.id) == lyrics(
+            original.id, folder: "Songs/Hymns", folderId: "hymns"
+        ))
     }
 
     @LibraryActor private func plant(_ name: String, onSlide index: Int, in document: TypedDocument<Presentation>) throws {

@@ -16,7 +16,7 @@ public enum StarterPack: String, CaseIterable, Sendable {
     public func overlayID(_ item: String) -> String { "pack.\(rawValue).overlay.\(item)" }
 
     public static let overlayItems = [
-        "name", "nameTimed", "scriptureVerse", "point", "ctaLower", "ticker", "verseSide", "pointSide", "cta", "search", "bars",
+        "lyricsLower", "name", "nameTimed", "scriptureVerse", "point", "ctaLower", "ticker", "verseSide", "pointSide", "cta", "search", "bars",
     ]
 
     public static let retiredOverlayItems = ["quote", "scripture", "section"]
@@ -99,6 +99,7 @@ public enum StarterPack: String, CaseIterable, Sendable {
                 textTransform: uppercase ? .uppercase : nil,
 
                 autoShrink: shrink ? true : nil,
+                minFontSize: shrink ? 24 : nil,
 
                 pageOnClick: page ? true : nil,
                 lineFill: lineFill, insetLeft: inset, insetRight: inset
@@ -367,18 +368,15 @@ public enum StarterPack: String, CaseIterable, Sendable {
         let look = look
         let bold = self == .boldBlocks
 
-        let bandIn = plateIn("\(b).band.in", edge: .bottom, big: true), bandOut = plateOut("\(b).band.out", .afterPrevious, delay: -0.05, edge: .bottom, big: true)
-        let barIn = ruleIn("\(b).bar.in", delay: -0.3, edge: .top, duration: 0.6), barOut = ruleOut("\(b).bar.out", edge: .top)
-        let textIn = textIn("\(b).text.in", delay: -0.3, rise: 30), textOut = textOut("\(b).text.out")
         let objects = [
-            block("\(b).band", "Band", x: 0, y: 720, w: 1920, h: 280, fill: gradient(look.plate2, look.plate, angle: 90), radius: 0, animationSteps: [bandIn, bandOut]),
-            block("\(b).bar", "Bar", x: 160, y: 760, w: bold ? 18 : 8, h: 200, color: look.accent, radius: 0, skew: bold ? -12 : nil, animationSteps: [barIn, barOut]),
+            block("\(b).band", "Band", x: 0, y: 720, w: 1920, h: 280, fill: gradient(look.plate2, look.plate, angle: 90), radius: 0, animationSteps: []),
+            block("\(b).bar", "Bar", x: 160, y: 760, w: bold ? 18 : 8, h: 200, color: look.accent, radius: 0, skew: bold ? -12 : nil, animationSteps: []),
             label("\(b).text", "Lyrics", Self.sampleLyrics, x: 210, y: 750, w: 1550, h: 220, size: 46,
                   display: bold, font: self == .editorialSerif ? "Georgia" : nil, uppercase: bold, inset: 0, lineHeight: 1.15, shrink: true, page: true,
-                  animationSteps: [textIn, textOut]),
+                  animationSteps: []),
         ]
         return Overlay(id: b, name: "Lyrics (Lower Third)", objects: objects,
-                       animationOrder: [bandIn.id, barIn.id, textIn.id, textOut.id, bandOut.id, barOut.id])
+                       animationOrder: [])
     }
 
     private func lyricsSideThird(base b: String) -> Overlay {
@@ -531,6 +529,7 @@ public enum StarterPack: String, CaseIterable, Sendable {
             return o
         }
         return [
+            group(lyricsLowerThird(base: overlayID("lyricsLower")), "Lower Thirds"),
             group(namePlate(timed: false, base: overlayID("name")), "Lower Thirds"),
             group(namePlate(timed: true, base: overlayID("nameTimed")), "Lower Thirds"),
             group(verseLowerThird(base: overlayID("scriptureVerse")), "Lower Thirds"),

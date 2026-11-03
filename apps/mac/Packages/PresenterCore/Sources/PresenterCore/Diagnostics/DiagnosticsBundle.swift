@@ -48,7 +48,7 @@ public enum DiagnosticsBundle {
 
     public static func isCrashReport(fileName: String) -> Bool {
         let name = fileName.lowercased()
-        return name.hasPrefix("mxu slides")
+        return name.hasPrefix("coah chorus") || name.hasPrefix("mxu slides")
             && ["ips", "crash", "hang", "spin", "diag"].contains((name as NSString).pathExtension)
     }
 

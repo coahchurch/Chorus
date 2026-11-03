@@ -119,7 +119,10 @@ public enum ChordProExport {
             ([block.name].compactMap(\.self) + [block.stanzas.joined(separator: "\n\n")]).joined(separator: "\n")
         }.joined(separator: "\n\n")
         if let source = presentation.reflowSource, !source.isEmpty,
-           lyricLines(ofSource: source) == lyricLines(of: fromSlides) {
+           lyricLines(ofSource: source) == lyricLines(of: fromSlides)
+            || LyricTextImporter.samePairedScriptLines(
+                lyricLines(ofSource: source), lyricLines(of: fromSlides)
+            ) {
             return source
         } else {
             return fromSlides

@@ -72,11 +72,10 @@ public enum ServiceItemChooserLogic {
     }
 
     public enum ImportRoute: CaseIterable, Sendable {
-        case slidesFile, proPresenter, powerPoint, lyrics, media
+        case slidesFile, powerPoint, lyrics, openLyrics, media
     }
 
-    static let slidesFileExtensions: Set<String> = ["mxuslides"]
-    static let proPresenterExtensions: Set<String> = ["pro", "probundle"]
+    static let slidesFileExtensions = SlidesPresentationFile.supportedFileExtensions
     static let powerPointExtensions: Set<String> = ["pptx", "ppt"]
 
     static let lyricsExtensions: Set<String> = ["txt", "text", "cho", "chopro", "crd", "chordpro", "pdf"]
@@ -85,12 +84,12 @@ public enum ServiceItemChooserLogic {
         let ext = url.pathExtension.lowercased()
         return if slidesFileExtensions.contains(ext) {
             .slidesFile
-        } else if proPresenterExtensions.contains(ext) {
-            .proPresenter
         } else if powerPointExtensions.contains(ext) {
             .powerPoint
         } else if lyricsExtensions.contains(ext) {
             .lyrics
+        } else if ext == "xml" {
+            .openLyrics
         } else if MediaImporter.libraryKind(of: url) == .media {
             .media
         } else {
@@ -101,12 +100,13 @@ public enum ServiceItemChooserLogic {
     public static func refusal(_ urls: [URL]) -> String? {
         urls.contains(where: { route($0) != nil })
             ? nil
-            : "MxU Slides can't import " + urls.map(\.lastPathComponent).joined(separator: ", ")
+            : "Chorus can't import " + urls.map(\.lastPathComponent).joined(separator: ", ")
     }
 
     public static var importTypes: [UTType] {
         [.image, .movie, .video]
-            + (slidesFileExtensions.union(proPresenterExtensions).union(powerPointExtensions).union(lyricsExtensions))
+            + (slidesFileExtensions.union(powerPointExtensions)
+                .union(lyricsExtensions).union(["xml"]))
                 .sorted()
                 .compactMap { UTType(filenameExtension: $0) }
     }

@@ -113,6 +113,18 @@ import Foundation
     }
 
     @discardableResult
+    public func bulkCreate<E: DocumentEntity>(
+        _ values: [E], area: LibraryArea? = nil, origin: ChangeOrigin = .local
+    ) throws -> LibraryBatch {
+        try publishing {
+            for value in values {
+                try persist(try made(value, seed: nil), origin: origin)
+                try home(area, key: SyncLedger.Key(kind: E.documentKind, id: value.id))
+            }
+        }
+    }
+
+    @discardableResult
     public func modify<E: DocumentEntity>(
         _ type: E.Type, id: String, origin: ChangeOrigin = .local, _ mutate: (inout E) throws -> Void
     ) throws -> LibraryBatch {

@@ -6,7 +6,7 @@ HERE=${0:A:h}
 MAC=${HERE:h:h}
 REPO=$(git -C "$MAC" rev-parse --show-toplevel)
 WORK=${MXU_PERF_DIR:-$HOME/Library/Caches/mxu-slides-perf}
-REAL="/Applications/MxU Slides.app"
+REAL="/Applications/COAH Chorus.app"
 IDENTITY=${MXU_PERF_IDENTITY:--}
 PORT=6989
 DOMAIN=com.example.mxuslides.perf
@@ -15,7 +15,7 @@ export PATH="$HOME/.asdf/shims:/opt/homebrew/bin:$PATH"
 export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}
 
 if (( $# < 1 || $# > 2 )); then
-  print -r -- "usage: scripts/perf/run.sh <commit | path/to/MxU Slides.app> [baseline.json]" >&2
+  print -r -- "usage: scripts/perf/run.sh <commit | path/to/COAH Chorus.app> [baseline.json]" >&2
   exit 2
 fi
 TARGET=$1
@@ -34,7 +34,7 @@ cleanup() {
   fi
   APP_PID=""
   defaults delete $DOMAIN >/dev/null 2>&1
-  if (( REAL_WAS_RUNNING )) && ! pgrep -f "$REAL/Contents/MacOS/MxU Slides" >/dev/null; then
+  if (( REAL_WAS_RUNNING )) && ! pgrep -f "$REAL/Contents/MacOS/COAH Chorus" >/dev/null; then
     log "reopening $REAL in the background"
     open -g "$REAL"
     REAL_WAS_RUNNING=0
@@ -58,13 +58,13 @@ else
   SMAC=$SRC/apps/mac
   log "building $COMMIT (Release, arm64, MXU_PERF_HOOKS)"
   xcodegen generate --spec "$SMAC/project.yml" --project "$SMAC" >/dev/null || die "xcodegen failed"
-  xcodebuild -project "$SMAC/MxUSlides.xcodeproj" -scheme MxUSlides -configuration Release \
+  xcodebuild -project "$SMAC/Chorus.xcodeproj" -scheme Chorus -configuration Release \
     -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile \
     -derivedDataPath "$WORK/dd" ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
     CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= \
     'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) MXU_PERF_HOOKS' MXU_GIT_COMMIT="$COMMIT" \
     build > "$WORK/build-$COMMIT.log" 2>&1 || die "build failed: $WORK/build-$COMMIT.log"
-  BUILT="$WORK/dd/Build/Products/Release/MxU Slides.app"
+  BUILT="$WORK/dd/Build/Products/Release/COAH Chorus.app"
 fi
 
 APP="$WORK/Stage/$LABEL.app"
@@ -78,7 +78,7 @@ fi
   || die "cannot give the staged build its own bundle identifier"
 codesign --force --deep --entitlements "$WORK/release.entitlements" --sign "$IDENTITY" "$APP" >/dev/null 2>&1 \
   || die "re-signing with $IDENTITY failed"
-BIN="$APP/Contents/MacOS/MxU Slides"
+BIN="$APP/Contents/MacOS/COAH Chorus"
 if [[ -n ${MXU_PERF_BUILD_ONLY:-} ]]; then
   log "built and staged: $APP (MXU_PERF_BUILD_ONLY: not measuring)"
   exit 0
@@ -86,15 +86,15 @@ fi
 [[ -f $WORK/drag60 && $WORK/drag60 -nt $HERE/drag60.swift ]] || xcrun swiftc -O -o "$WORK/drag60" "$HERE/drag60.swift" \
   || die "cannot build drag60"
 
-if pgrep -f "Stage/.*\.app/Contents/MacOS/MxU Slides" >/dev/null; then
-  die "another staged MxU Slides is running (another session's perf run?): not starting a second"
+if pgrep -f "Stage/.*\.app/Contents/MacOS/COAH Chorus" >/dev/null; then
+  die "another staged COAH Chorus is running (another session's perf run?): not starting a second"
 fi
-if pgrep -f "$REAL/Contents/MacOS/MxU Slides" >/dev/null; then
+if pgrep -f "$REAL/Contents/MacOS/COAH Chorus" >/dev/null; then
   log "quitting $REAL (reopened in the background at the end)"
   REAL_WAS_RUNNING=1
   osascript -e 'tell application id "com.example.mxuslides" to quit' >/dev/null 2>&1
-  for _ in {1..100}; do pgrep -f "$REAL/Contents/MacOS/MxU Slides" >/dev/null || break; sleep 0.2; done
-  pgrep -f "$REAL/Contents/MacOS/MxU Slides" >/dev/null && die "$REAL did not quit"
+  for _ in {1..100}; do pgrep -f "$REAL/Contents/MacOS/COAH Chorus" >/dev/null || break; sleep 0.2; done
+  pgrep -f "$REAL/Contents/MacOS/COAH Chorus" >/dev/null && die "$REAL did not quit"
 fi
 
 HOME_DIR=""
@@ -227,7 +227,7 @@ targets() {
 
 drag() {
   await_idle
-  front || die "the staged MxU Slides is not in front: no synthetic input"
+  front || die "the staged COAH Chorus is not in front: no synthetic input"
   (( $(hid_idle) >= 1 )) || die "input arrived while fronting the app: stopping"
   local x y
   read -r x y <<< "$(targets $3)"

@@ -1,7 +1,9 @@
 import Foundation
 
 public enum SlidesPresentationFile {
-    public static let fileExtension = "mxuslides"
+    public static let fileExtension = "chorus"
+    public static let legacyFileExtensions: Set<String> = ["mxuslides"]
+    public static let supportedFileExtensions = legacyFileExtensions.union([fileExtension])
 
     public static let typeIdentifier = "com.example.mxuslides.presentation"
     public static let formatVersion = 1
@@ -32,9 +34,9 @@ public enum SlidesPresentationFile {
         public var errorDescription: String? {
             switch self {
             case .notAPresentation(let name):
-                "“\(name)” isn't an MxU Slides presentation."
+                "“\(name)” isn't a Chorus presentation."
             case .unsupportedFormat(let version):
-                "This presentation was made by a newer MxU Slides (format \(version)). Update the app to import it."
+                "This presentation was made by a newer Chorus (format \(version)). Update the app to import it."
             case .archive(let detail):
                 detail
             }

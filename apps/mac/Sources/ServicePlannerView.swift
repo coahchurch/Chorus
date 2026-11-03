@@ -417,7 +417,7 @@ struct RunOrderList: View {
     @ViewBuilder
     private func transitionLine(_ item: ServiceItem) -> some View {
         let kind = SongTransitions.kind(item.transition)
-        if item.itemKind == .presentation, kind != .stop {
+        if item.itemKind == .presentation || item.itemKind == .song, kind != .stop {
             Menu {
                 SongTransitionMenuItems(current: item.transition) {
                     model.setServiceItemTransition(serviceID, itemIDs: [item.id], transition: $0)
@@ -443,7 +443,8 @@ struct RunOrderList: View {
     @ViewBuilder
     private func transitionButton(_ item: ServiceItem) -> some View {
         let kind = SongTransitions.kind(item.transition)
-        if item.itemKind == .presentation, kind == .stop, TimelineTracks.hasTracks(model.trackChannels) {
+        if (item.itemKind == .presentation || item.itemKind == .song),
+           kind == .stop, TimelineTracks.hasTracks(model.trackChannels) {
             Menu {
                 SongTransitionMenuItems(current: item.transition) {
                     model.setServiceItemTransition(serviceID, itemIDs: [item.id], transition: $0)
@@ -487,7 +488,7 @@ struct RunOrderList: View {
                     .help("Changed in this version. Right-click and choose Use Main's to undo it.")
             }
 
-            if item.itemKind == .presentation,
+            if (item.itemKind == .presentation || item.itemKind == .song),
                let override = arrangementName(item) {
                 Text(override)
                     .font(.caption)
@@ -498,6 +499,7 @@ struct RunOrderList: View {
                 transitionButton(item)
                 Glyph(
                     kind: item.itemKind == .presentation ? .presentations
+                        : item.itemKind == .song ? .audio
                         : item.itemKind == .audio || item.itemKind == .playlist ? .audio
                         : .media,
                     size: 13
@@ -608,7 +610,7 @@ struct RunOrderList: View {
     private func isItemLive(_ item: ServiceItem) -> Bool {
         guard let controls else { return false }
         switch item.itemKind {
-        case .presentation: return controls.liveContextID == item.id
+        case .presentation, .song: return controls.liveContextID == item.id
         case .media: return controls.isMediaLive(item.refId)
         case .audio: return controls.state.liveAudio.contains { $0.audioItemId == item.refId }
         case .playlist: return controls.state.liveAudio.contains { $0.playlistId == item.refId }
@@ -884,7 +886,7 @@ struct ServiceItemDetailView: View {
            let item = service.items.first(where: { $0.id == itemID }),
            item.itemKind != .header {
             switch item.itemKind {
-            case .presentation:
+            case .presentation, .song:
                 PresentGridView(
                     model: model, render: render, controls: controls,
                     presentationID: item.refId, arrangementId: item.arrangementId,

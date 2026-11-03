@@ -4,19 +4,20 @@ import UniformTypeIdentifiers
 
 extension AppModel {
     static var presentationFileTypes: [UTType] {
-        [UTType(SlidesPresentationFile.typeIdentifier), UTType(filenameExtension: SlidesPresentationFile.fileExtension)]
+        ([UTType(SlidesPresentationFile.typeIdentifier)]
+            + SlidesPresentationFile.supportedFileExtensions.map { UTType(filenameExtension: $0) })
             .compactMap { $0 }
     }
 
     static func isPresentationFile(_ url: URL) -> Bool {
-        url.pathExtension.lowercased() == SlidesPresentationFile.fileExtension
+        SlidesPresentationFile.supportedFileExtensions.contains(url.pathExtension.lowercased())
     }
 
     func presentPresentationFileImport() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = Self.presentationFileTypes
-        panel.message = "Choose MxU Slides presentations (.\(SlidesPresentationFile.fileExtension))"
+        panel.message = "Choose Chorus presentations (.\(SlidesPresentationFile.fileExtension))"
         panel.begin { response in
             if response == .OK, !panel.urls.isEmpty {
                 let urls = panel.urls
@@ -38,7 +39,7 @@ extension AppModel {
             activity.completed = index
             activity.detail = url.deletingPathExtension().lastPathComponent
             let scratch = FileManager.default.temporaryDirectory
-                .appendingPathComponent("mxuslides-\(UUID().uuidString)", isDirectory: true)
+                .appendingPathComponent("chorus-\(UUID().uuidString)", isDirectory: true)
             do {
                 let contents = try await Task.detached(priority: .userInitiated) {
                     try SlidesPresentationFile.read(url, into: scratch)
@@ -113,7 +114,7 @@ enum PresentationFileOpener {
             model.whenLibraryReady {
                 if UserDefaults.standard.bool(forKey: PresentLayoutController.lockedKey) {
                     let alert = NSAlert()
-                    alert.messageText = "Unlock MxU Slides to import"
+                    alert.messageText = "Unlock Chorus to import"
                     alert.informativeText = "Volunteer Mode is on. Leave it from the mode switcher, then open the presentation again."
                     alert.runModal()
                 } else {

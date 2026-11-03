@@ -657,6 +657,12 @@ final class SlideEditorModel {
         updateDocument { $0.backgroundFill = fill }
     }
 
+    func setSongBackground(mediaID: String?) {
+        guard case .presentation = host else { return }
+        let background = mediaID.flatMap { appModel.media($0) }.map(CueMedia.droppedOnSlide(for:))
+        updateDocument { $0.background = background }
+    }
+
     var themeSlideNames: [String] {
         guard case .presentation = host else { return [] }
         return (theme?.slides ?? []).map(\.name)
@@ -1996,6 +2002,7 @@ final class SlideEditorModel {
         case untilReplaced = "Until Replaced"
         case section = "This Section"
         case song = "Entire Song"
+        case global = "Global"
     }
 
     var availableBackgroundScopes: [BackgroundScope] {
@@ -2004,8 +2011,10 @@ final class SlideEditorModel {
 
     var effectiveBackground: CueMedia? {
         guard !isThemeEditor else { return nil }
+        let globalBackgroundId = appModel.globalBackgroundId()
+        let globalBackground = globalBackgroundId.isEmpty ? nil : appModel.media(globalBackgroundId).map { CueMedia.droppedOnSlide(for: $0) }
         return currentSlide.flatMap {
-            SlideSceneBuilder.effectiveBackground(slide: $0, presentation: presentation)
+            SlideSceneBuilder.effectiveBackground(slide: $0, presentation: presentation, globalBackground: globalBackground)
         }
     }
 
@@ -2018,6 +2027,7 @@ final class SlideEditorModel {
         case .slide?: return .untilReplaced 
         case .section?: return .section
         case .song?: return .song
+        case .global?: return .global
         case nil: return nil
         }
     }
@@ -2161,6 +2171,8 @@ final class SlideEditorModel {
             }
         case .song?:
             updateDocument { $0.background = nil }
+        case .global?:
+            appModel.setGlobalBackground(mediaID: nil)
         case nil:
             break
         }
@@ -2171,7 +2183,9 @@ final class SlideEditorModel {
               let slideID = selectedSlideID
         else { return }
         media.mode = scope == .untilReplaced ? .untilReplaced : nil
-        removeBackground()
+        if backgroundLocation != .global {
+            removeBackground()
+        }
         write(background: media, at: scope, slideID: slideID)
     }
 
@@ -2188,6 +2202,8 @@ final class SlideEditorModel {
             }
         case .slide, .untilReplaced:
             updateSlide(slideID) { $0.background = media }
+        case .global:
+            appModel.setGlobalBackground(mediaID: media.mediaId)
         }
     }
 
@@ -2225,6 +2241,8 @@ final class SlideEditorModel {
                 presentation.sections?[index].background = background
             }
         case .song:
+            updateDocument { $0.background = background }
+        case .global:
             updateDocument { $0.background = background }
         }
     }

@@ -51,6 +51,7 @@ extension LibraryEngine {
     private func refileDocument(_ refile: LibraryRefile, origin: ChangeOrigin) throws {
         switch refile.kind {
         case .presentation: try refileDocument(Presentation.self, refile, origin: origin)
+        case .song: try refileDocument(SongLyrics.self, refile, origin: origin)
         case .overlay: try refileDocument(Overlay.self, refile, origin: origin)
         case .media: try refileDocument(MediaItem.self, refile, origin: origin)
         case .audio: try refileDocument(AudioItem.self, refile, origin: origin)

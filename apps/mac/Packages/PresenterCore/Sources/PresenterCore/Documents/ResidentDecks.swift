@@ -364,7 +364,7 @@ public extension ResidentLibrary {
     ) -> [ResidencyStage] {
         let media: [DocumentKind] = [.media, .audio]
         let themes: [DocumentKind] = [.theme]
-        let earlier = Set(setupKinds + media + themes)
+        let earlier = Set(setupKinds + media + themes + [.song])
         return [
             ResidencyStage(name: "setup", kinds: setupKinds, work: setup),
             ResidencyStage(name: "live", kinds: [], work: liveSet),

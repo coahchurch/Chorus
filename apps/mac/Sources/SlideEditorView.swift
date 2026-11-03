@@ -20,6 +20,10 @@ struct SlideEditorView: View {
     }
 
     @State private var model: SlideEditorModel?
+    @State private var loadAttempt = 0
+    @State private var loadTimedOut = false
+    @State private var loadFailed = false
+    @State private var spinnerDue = false
     @State private var showingMediaPicker = false
 
     @Environment(\.actionRouter) private var actionRouter
@@ -69,7 +73,6 @@ struct SlideEditorView: View {
     @FocusState private var slideListFocused: Bool
     @FocusState private var objectsPanelFocused: Bool
 
-    @State private var spinnerDue = false
     private static let spinnerDelay: Duration = .milliseconds(150)
 
     var body: some View {
@@ -77,6 +80,29 @@ struct SlideEditorView: View {
         Group {
             if let model {
                 editor(model)
+            } else if loadTimedOut {
+                VStack(spacing: 12) {
+                    Text("The overlay is taking too long to open.")
+                        .font(.headline)
+                    Button("Retry") {
+                        loadTimedOut = false
+                        loadFailed = false
+                        loadAttempt += 1
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if loadFailed {
+                VStack(spacing: 12) {
+                    Text("The overlay could not be opened.")
+                        .font(.headline)
+                    Button("Retry") {
+                        loadFailed = false
+                        loadAttempt += 1
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
 
                 ProgressView()
@@ -91,7 +117,10 @@ struct SlideEditorView: View {
         }
 
         .focusedSceneValue(\.slideEditor, model)
-        .task(id: presentationID) {
+        .task(id: "\(presentationID)-\(loadAttempt)") {
+            loadTimedOut = false
+            loadFailed = false
+            model = nil
 
             let built = if isTheme {
                 await SlideEditorModel(appModel: appModel, render: render, themeID: presentationID)
@@ -107,6 +136,7 @@ struct SlideEditorView: View {
 
             if !Task.isCancelled {
                 model = built
+                loadFailed = built == nil
 
                 if let slideID = appModel.pendingEditorSlideID {
                     appModel.pendingEditorSlideID = nil
@@ -114,6 +144,12 @@ struct SlideEditorView: View {
                 }
             } else {
                 built?.endSession()
+            }
+        }
+        .task(id: "\(presentationID)-\(loadAttempt)-timeout") {
+            try? await Task.sleep(for: .seconds(15))
+            if !Task.isCancelled && model == nil {
+                loadTimedOut = true
             }
         }
         .onDisappear { model?.teardown() }
@@ -1438,7 +1474,6 @@ struct LibraryPickerSheet: View {
 
     @State private var queryHits: [LibraryIndex.Entry] = []
 
-    @State private var proPresenterIDs: Set<String> = []
     @State private var choosingFiles = false
     @State private var dropTargeted = false
 
@@ -1477,11 +1512,6 @@ struct LibraryPickerSheet: View {
         }
         .frame(width: 560, height: 460)
         .onAppear { searchFocused = true }
-        .task {
-            if kind == .presentation {
-                proPresenterIDs = await appModel.proPresenterImportIDs()
-            }
-        }
         .task(id: query) {
             queryHits = await appModel.search(query).map(\.entry)
         }
@@ -1538,8 +1568,7 @@ struct LibraryPickerSheet: View {
                 List(entries, id: \.id) { entry in
                     if entry.kind == .presentation {
                         LibraryPickerDeckRow(
-                            appModel: appModel, render: render, entry: entry,
-                            proPresenterIDs: proPresenterIDs
+                            appModel: appModel, render: render, entry: entry
                         ) {
                             onPick(entry)
                             dismiss()

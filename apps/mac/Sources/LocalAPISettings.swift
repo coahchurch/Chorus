@@ -122,6 +122,13 @@ struct LocalAPIContractRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            Button("Open Remote") {
+                if let url = URL(string: api.remoteURL) {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .disabled(!api.running)
+            CopyGlyphButton(value: api.remoteURL)
             Button("Open API Reference") {
                 if let url = URL(string: api.docsURL) {
                     NSWorkspace.shared.open(url)

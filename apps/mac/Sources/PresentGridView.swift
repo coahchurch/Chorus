@@ -51,7 +51,7 @@ struct PresentGridView: View {
         let _ = model.listVersion
 
         if let presentation = model.presentation(presentationID) {
-            let theme = model.theme(presentation.themeId)
+            let theme = model.theme(for: presentation)
 
             let slides = model.arrangedSlides(presentation, arrangementId: effectiveArrangementID)
             ScrollViewReader { proxy in
@@ -136,10 +136,21 @@ struct PresentGridView: View {
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(.quaternary, in: Capsule())
             }
-            SongKeyChip(model: model, controls: controls, presentation: presentation)
+            if presentation.presentationKind != .song {
+                SongKeyChip(model: model, controls: controls, presentation: presentation)
+            }
+            LiveLyricLinesControl(
+                model: model, presentation: presentation, controls: controls,
+                contextID: fireContext
+            )
+                .id(presentation.id)
             Spacer()
 
-            PresentationSettingsButton(model: model, render: render, controls: controls, presentation: presentation)
+            if presentation.presentationKind != .song {
+                PresentationSettingsButton(
+                    model: model, render: render, controls: controls, presentation: presentation
+                )
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -167,6 +178,174 @@ struct PresentGridView: View {
         }
     }
 }
+
+struct LiveLyricLinesControl: View {
+    let model: AppModel
+    let presentation: Presentation
+    let controls: ServiceControls?
+    let contextID: String
+
+    @State private var linesPerSlide: Int
+    @State private var errorMessage: String?
+    @State private var showingSlider = false
+    @State private var isAdjustingSlider = false
+
+    init(
+        model: AppModel, presentation: Presentation, controls: ServiceControls?,
+        contextID: String
+    ) {
+        self.model = model
+        self.presentation = presentation
+        self.controls = controls
+        self.contextID = contextID
+        _linesPerSlide = State(
+            initialValue: LyricTextImporter.displayedLyricLinesPerSlide(in: presentation)
+        )
+    }
+
+    private var hasLyrics: Bool {
+        presentation.slides.contains { slide in
+            slide.objects.contains {
+                !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+        }
+    }
+
+    var body: some View {
+        if hasLyrics {
+            Button {
+                showingSlider.toggle()
+            } label: {
+                Label("\(linesPerSlide) Lines", systemImage: "text.alignleft")
+            }
+            .buttonStyle(.bordered)
+            .help("Adjust lyric lines per slide while presenting")
+            .popover(isPresented: $showingSlider, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Lyric lines per slide")
+                        Spacer()
+                        Text("\(linesPerSlide)")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { Double(linesPerSlide) },
+                            set: {
+                                let count = Int($0.rounded())
+                                guard count != linesPerSlide else { return }
+                                linesPerSlide = count
+                                if model.songID(for: presentation) != nil {
+                                    apply(linesPerSlide: count)
+                                }
+                            }
+                        ),
+                        in: 1...8,
+                        step: 1,
+                        onEditingChanged: { editing in
+                            isAdjustingSlider = editing
+                            if !editing, model.songID(for: presentation) == nil {
+                                apply(linesPerSlide: linesPerSlide)
+                            }
+                        },
+                        minimumValueLabel: Text("1"),
+                        maximumValueLabel: Text("8"),
+                        label: { Text("Lyric lines per slide") }
+                    )
+                    .frame(width: 240)
+                    Text(isAdjustingSlider
+                         ? "Release to apply the new line count."
+                         : "Changes apply to this presentation.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(14)
+            }
+            .alert(
+                "Unable to Reflow Lyrics",
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button("OK") { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "The presentation could not be updated.")
+            }
+        }
+    }
+
+    @MainActor
+    private func apply(linesPerSlide: Int) {
+        let liveLine: String?
+        if let controls, let live = controls.state.liveSlide,
+           live.presentation?.id == presentation.id, controls.liveContextID == contextID {
+            liveLine = live.slide.objects
+                .flatMap { $0.text.components(separatedBy: .newlines) }
+                .first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        } else {
+            liveLine = nil
+        }
+        if let songID = model.songID(for: presentation),
+           let updatedSong = model.setSongLineCount(linesPerSlide, id: songID) {
+            guard let controls,
+                  controls.liveContextID == contextID,
+                  controls.livePresentationID == presentation.id,
+                  !updatedSong.slides.isEmpty else { return }
+            let matchingIndex = liveLine.flatMap { line in
+                updatedSong.slides.firstIndex { slide in
+                    slide.objects.contains {
+                        $0.text.components(separatedBy: .newlines).contains(line)
+                    }
+                }
+            }
+            let currentIndex = controls.liveOccurrence ?? 0
+            let index = matchingIndex ?? min(currentIndex, updatedSong.slides.count - 1)
+            controls.fire(
+                slide: updatedSong.slides[index], in: updatedSong,
+                contextID: contextID, occurrence: index
+            )
+            return
+        }
+        guard let updated = LyricTextImporter.reflowPresentation(
+            presentation, linesPerSlide: linesPerSlide
+        ) else { return }
+        let task = model.updatePresentation(presentation.id) { stored in
+            stored.slides = updated.slides
+            stored.sections = updated.sections
+            stored.arrangements = updated.arrangements
+            stored.defaultArrangementId = updated.defaultArrangementId
+            stored.reflowSource = updated.reflowSource
+        }
+        Task {
+            do {
+                _ = try await task.value
+                guard let controls,
+                      controls.liveContextID == contextID,
+                      controls.livePresentationID == presentation.id,
+                      !updated.slides.isEmpty else { return }
+                let matchingIndex = liveLine.flatMap { line in
+                    updated.slides.firstIndex { slide in
+                        slide.objects.contains {
+                            $0.text.components(separatedBy: .newlines).contains(line)
+                        }
+                    }
+                }
+                let currentIndex = controls.liveOccurrence ?? 0
+                let index = matchingIndex ?? min(currentIndex, updated.slides.count - 1)
+                controls.fire(
+                    slide: updated.slides[index], in: updated,
+                    contextID: contextID, occurrence: index
+                )
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+}
+
 
 @MainActor
 enum SlideGridMetrics {
@@ -2523,6 +2702,13 @@ struct MediaFireView: View {
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.return, modifiers: [])
                 .disabled(model.isMediaFileMissing(item))
+            }
+            .task(id: mediaID) {
+                guard let controls,
+                      !model.isMediaFileMissing(item),
+                      controls.state.liveMedia.values.contains(where: { $0.mediaId == mediaID }) == false
+                else { return }
+                controls.fire(mediaItem: item)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(24)

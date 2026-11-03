@@ -5,11 +5,13 @@ import RenderEngine
 public enum ScreenRole: String, Sendable, CaseIterable {
     case audience
     case confidence
+    case liveStream
 
     public var displayName: String {
         switch self {
         case .audience: "Audience"
         case .confidence: "Confidence Monitor"
+        case .liveStream: "Live Stream"
         }
     }
 }
@@ -547,6 +549,12 @@ public final class OutputManager {
         slideThemeRouting.value = routing
     }
 
+    private let transparentBackgroundTargets = Locked<Set<String>>([])
+
+    public func setTransparentBackgroundTargets(_ targetIDs: Set<String>) {
+        transparentBackgroundTargets.value = targetIDs
+    }
+
     public var variantSceneProvider: (@Sendable (String) -> RenderScene?)?
 
     public func previewProvider(for targetID: String) -> @Sendable () -> RenderScene {
@@ -559,6 +567,7 @@ public final class OutputManager {
         let variants = variantSceneProvider
         let routing = layerRouting
         let themeRouting = slideThemeRouting
+        let transparentBackgrounds = transparentBackgroundTargets
         let roles = roleBox
         let scaling = scaleModeBox
         let spans = spanBox
@@ -580,6 +589,20 @@ public final class OutputManager {
             if let screenID, let syncTest, syncTests.value.contains(screenID) {
                 return syncTest
             }
+            if let screenID, roles.value[screenID] == .liveStream {
+                var liveScene = base()
+                liveScene.background = SceneColor(red: 0, green: 0, blue: 0, alpha: 0)
+                for index in liveScene.layers.indices {
+                    liveScene.layers[index].isHidden =
+                        liveScene.layers[index].kind != .overlays
+                }
+                if let canvasSize, !spans.value.contains(screenID) {
+                    liveScene = liveScene.scaled(
+                        toScreen: canvasSize, mode: scaling.value[screenID] ?? .fit
+                    )
+                }
+                return liveScene
+            }
             if let screenID, let confidence, roles.value[screenID] == .confidence {
                 return confidence(screenID)
             }
@@ -592,8 +615,19 @@ public final class OutputManager {
                 scene = base()
             }
 
+            if screenID == nil || roles.value[screenID!] != .liveStream {
+                for index in scene.layers.indices {
+                    if scene.layers[index].kind == .overlays {
+                        scene.layers[index].isHidden = true
+                    }
+                }
+            }
+
             if let screenID, let canvasSize, !spans.value.contains(screenID) {
                 scene = scene.scaled(toScreen: canvasSize, mode: scaling.value[screenID] ?? .fit)
+            }
+            if transparentBackgrounds.value.contains(routingKey) {
+                scene.background = SceneColor(red: 0, green: 0, blue: 0, alpha: 0)
             }
             guard let enabled = routing.value[routingKey] else { return scene }
             for index in scene.layers.indices

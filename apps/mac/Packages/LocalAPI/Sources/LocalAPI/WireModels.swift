@@ -32,7 +32,7 @@ public struct APIError: Error, Codable, Sendable {
 }
 
 public enum APIDocumentKind: String, Codable, CaseIterable, Sendable {
-    case presentations, services, themes, media, audio, playlists, overlays
+    case presentations, songs, services, themes, media, audio, playlists, overlays
     case alertPresets = "alert-presets"
     case outputPresets = "output-presets"
     case streamPresets = "stream-presets"

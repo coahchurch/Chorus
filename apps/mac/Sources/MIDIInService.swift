@@ -73,7 +73,7 @@ final class MIDIInService: @unchecked Sendable {
     private func ensureReady() -> Bool {
         if ready { return true }
         let clientStatus = MIDIClientCreateWithBlock(
-            "MxU Slides In" as CFString, &client
+            "Chorus In" as CFString, &client
         ) { [weak self] notification in
             if notification.pointee.messageID == .msgSetupChanged {
                 self?.syncConnections()
@@ -81,7 +81,7 @@ final class MIDIInService: @unchecked Sendable {
         }
         guard clientStatus == noErr,
               MIDIInputPortCreateWithBlock(
-                  client, "MxU Slides In Port" as CFString, &port,
+                  client, "Chorus In Port" as CFString, &port,
                   { [weak self] packetList, refCon in self?.receive(packetList, refCon) }
               ) == noErr
         else { return false }

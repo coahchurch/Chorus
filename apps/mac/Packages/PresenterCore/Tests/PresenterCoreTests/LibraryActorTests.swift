@@ -299,6 +299,24 @@ private final class ActorPark: Sendable {
         #expect(await take(2, from: start.batches).map(\.sequence) == [1, 2])
     }
 
+    @LibraryActor @Test func aBulkCreatePublishesOneBatchAndAssignsTheRequestedArea() async throws {
+        let root = makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let engine = LibraryEngine(rootURL: root)
+        let start = try engine.bootstrap()
+        let values = (0..<120).map { combo("c\($0)", "Combo \($0)") }
+
+        let batch = try engine.bulkCreate(values, area: .team)
+
+        #expect(batch.sequence == 1)
+        #expect(batch.changes.count == values.count)
+        #expect(batch.snapshot.entries(of: .actionCombo).count == values.count)
+        #expect(values.allSatisfy {
+            batch.snapshot.area(kind: .actionCombo, id: $0.id) == .team
+        })
+        #expect(await take(1, from: start.batches).map(\.sequence) == [1])
+    }
+
     @LibraryActor @Test func aScopedListWriteRunsOnTheCanonicalReplica() throws {
         let root = makeRoot()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -479,6 +497,27 @@ private final class ActorPark: Sendable {
         let onDisk = try await onLibraryActor { try sqlSnapshot(root, generation: batch.snapshot.generation) }
         #expect(onDisk == batch.snapshot)
         #expect(try await onLibraryActor(reading: root) { try $0.store.ids(of: .actionCombo) } == ["kept"])
+    }
+
+    @MainActor @Test func clientBulkCreateAppliesOptimisticValuesAndOneLibraryBatch() async throws {
+        let root = makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let client = LibraryClient(rootURL: root)
+        let side = TableReadSide()
+        client.readSide = side
+        try await client.start().value
+        let values = (0..<80).map { combo("c\($0)", "Combo \($0)") }
+
+        let batch = try await client.create(values, area: .team).value
+
+        #expect(batch.changes.count == values.count)
+        #expect(values.allSatisfy { side.combos.value($0.id)?.name == $0.name })
+        #expect(batch.snapshot.entries(of: .actionCombo).count == values.count)
+        #expect(values.allSatisfy {
+            batch.snapshot.area(kind: .actionCombo, id: $0.id) == .team
+        })
+        try await until { client.lastAppliedSequence == batch.sequence }
+        #expect(side.batches.count == 1)
     }
 
     @MainActor @Test func aRefusedEditTellsTheReadSideAndPublishesNothing() async throws {

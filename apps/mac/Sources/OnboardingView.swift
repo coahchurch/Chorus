@@ -7,21 +7,17 @@ struct OnboardingView: View {
     let model: AppModel
     let render: RenderContext?
 
-    let importWorkspace: ((@escaping (ImportActivityModel?) -> Void) -> Void)?
     let close: () -> Void
 
     @State private var flow: OnboardingFlow
 
-    @State private var importActivity: ImportActivityModel?
     @Environment(\.openWindow) private var openWindow
 
     init(
-        model: AppModel, render: RenderContext?,
-        importWorkspace: ((@escaping (ImportActivityModel?) -> Void) -> Void)?, close: @escaping () -> Void
+        model: AppModel, render: RenderContext?, close: @escaping () -> Void
     ) {
         self.model = model
         self.render = render
-        self.importWorkspace = importWorkspace
         self.close = close
         _flow = State(initialValue: OnboardingFlow(firstRun: model.needsOnboarding))
     }
@@ -38,10 +34,8 @@ struct OnboardingView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(28)
-            if importActivity == nil {
-                Divider()
-                footer
-            }
+            Divider()
+            footer
         }
         .frame(width: 640)
         .frame(minHeight: 520)
@@ -51,7 +45,7 @@ struct OnboardingView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Welcome to MxU Slides")
+            Text("Welcome to Chorus")
                 .font(.title2.weight(.semibold))
             HStack(spacing: 14) {
                 ForEach(OnboardingFlow.Step.allCases, id: \.self) { step in
@@ -74,38 +68,15 @@ struct OnboardingView: View {
 
     @ViewBuilder
     private var contentStep: some View {
-        if let importActivity {
-            ImportActivityView(model: importActivity) {
-                self.importActivity = nil
-                flow.advance()
-            }
-        } else {
-            contentChoices
-        }
+        contentChoices
     }
 
     private var contentChoices: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Bring in your content")
                 .font(.headline)
-            VStack(alignment: .leading, spacing: 8) {
-                Button {
-                    flow.choose(.importWorkspace)
-                    importWorkspace? { importActivity = $0 }
-                } label: {
-                    Label("Import ProPresenter Workspace…", systemImage: "square.and.arrow.down")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(importWorkspace == nil)
-                Text("Libraries, playlists, themes, media, looks, stage layouts and macros come across. You choose what to bring before anything is written.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Toggle("Include the Getting Started service and welcome presentation", isOn: $flow.includeGettingStarted)
-                    .font(.callout)
-            }
+            Toggle("Include the Getting Started service and welcome presentation", isOn: $flow.includeGettingStarted)
+                .font(.callout)
             Button {
                 flow.choose(.startFromScratch)
             } label: {

@@ -1,6 +1,5 @@
 import PPTXImport
 import PresenterCore
-import ProImport
 import SlideScene
 import SwiftUI
 import UniformTypeIdentifiers
@@ -40,7 +39,14 @@ struct LibrarySidebar: View {
     @State private var applyThemeTarget: ApplyThemeTarget?
     @State private var creatingFolder = false
     @State private var importingLyrics = false
+    @State private var importingOpenLyrics = false
+    @State private var importingSongClipboard = false
+    @State private var showingBible = false
+    @State private var bibleStore = BibleLibraryStore()
+    @State private var songReviewTarget: LibraryIndex.Entry?
+    @State private var servicePreflightTarget: LibraryIndex.Entry?
     @State private var searchText = ""
+    @State private var visibleRowLimit = 300
 
     @AppStorage("library.audioTab") private var audioTab = 0
     @FocusState private var searchFocused: Bool
@@ -53,9 +59,21 @@ struct LibrarySidebar: View {
     var layout: PresentLayoutController? = nil
 
     var controls: ServiceControls? = nil
+    var presets: OutputPresetsController? = nil
 
     @State private var findSpotlight = LibraryFindSpotlight()
     @State private var folderRenameTarget: FolderRenameTarget?
+
+    @State private var showingBackgroundPicker = false
+
+    private var globalBackgroundLabel: String {
+        let mediaId = model.globalBackgroundId()
+        if mediaId.isEmpty {
+            return "Global Background: None"
+        } else {
+            return "Global Background: " + (model.indexEntry(mediaId)?.name ?? "Missing")
+        }
+    }
 
     private struct FolderRenameTarget: Identifiable {
         let path: [String]
@@ -75,21 +93,40 @@ struct LibrarySidebar: View {
                     .padding(.bottom, 6)
             }
             Divider()
-            if searchText.isEmpty, model.selectedSection == .audio, audioTab == 1 {
+            if showingBible {
+                BibleLibraryView(
+                    model: model, store: bibleStore, controls: controls, presets: presets
+                ) { id in
+                    showingBible = false
+                    showImported(id)
+                }
+            } else if searchText.isEmpty, model.selectedSection == .audio, audioTab == 1 {
                 TrackSetList(model: model)
             } else if searchText.isEmpty {
                 entryList
             } else {
                 searchResults
             }
-            Divider()
-            footer
+            if !showingBible {
+                Divider()
+                footer
+            }
+        }
+        .task {
+            await bibleStore.load()
         }
         .onChange(of: viewedFolder, initial: true) { _, viewed in
             model.viewedLibraryFolder = viewed
         }
         .onChange(of: model.selectedSection, initial: true) { _, section in
             folderLocation.switched(to: section.rawValue)
+            visibleRowLimit = 300
+        }
+        .onChange(of: folderPath) { _, _ in
+            visibleRowLimit = 300
+        }
+        .onChange(of: model.listVersion) { _, _ in
+            visibleRowLimit = 300
         }
         .onChange(of: model.libraryRevealID) { _, id in
             if let id {
@@ -120,8 +157,24 @@ struct LibrarySidebar: View {
             DispatchQueue.main.async { searchFocused = true }
         }
         .focusedSceneValue(\.presentLyricImport, MenuAction("importLyrics") { importingLyrics = true })
+        .focusedSceneValue(\.presentSongImport, MenuAction("importSongLyrics") { importingSongClipboard = true })
+        .focusedSceneValue(\.presentOpenLyricsImport, MenuAction("importOpenLyrics") {
+            importingOpenLyrics = true
+        })
         .sheet(isPresented: $importingLyrics) {
             ImportLyricsSheet(model: model, render: render, onImported: showImported)
+        }
+        .sheet(isPresented: $importingOpenLyrics) {
+            ImportOpenLyricsSheet(model: model, onImported: showImported)
+        }
+        .sheet(isPresented: $importingSongClipboard) {
+            SongClipboardImportSheet(model: model, onImported: showImported)
+        }
+        .sheet(item: $songReviewTarget) { entry in
+            SongReviewView(model: model, presentationID: entry.id)
+        }
+        .sheet(item: $servicePreflightTarget) { entry in
+            ServicePreflightView(model: model, serviceID: entry.id)
         }
         .sheet(item: $newFolderTarget) { entry in
             NewFolderSheet(model: model, entry: entry, parentPath: realPath(folderPath ?? []))
@@ -161,6 +214,14 @@ struct LibrarySidebar: View {
             }
             Button("Cancel", role: .cancel) { renameTarget = nil }
         }
+        .alert("Library Action Failed", isPresented: Binding(
+            get: { libraryActionError != nil },
+            set: { if !$0 { libraryActionError = nil } }
+        )) {
+            Button("OK") { libraryActionError = nil }
+        } message: {
+            Text(libraryActionError ?? "The library action could not be completed.")
+        }
         .confirmationDialog(
             deleteBatch.count == 1
                 ? "Delete \u{201C}\(deleteBatch.first?.name ?? "")\u{201D}?"
@@ -182,6 +243,18 @@ struct LibrarySidebar: View {
                 Text("This can't be undone.")
             }
         }
+        .confirmationDialog(
+            "Delete \(songDeletionIDs?.count ?? 0) Songs?",
+            isPresented: deleteSongsConfirmActive,
+            titleVisibility: .visible
+        ) {
+            Button("Delete All \(songDeletionIDs?.count ?? 0) Songs", role: .destructive) {
+                deleteAllSongs()
+            }
+            Button("Cancel", role: .cancel) { songDeletionIDs = nil }
+        } message: {
+            Text("Deletes every song presentation in the library, including songs beyond the currently loaded rows. Other presentations and library items are kept. This can't be undone.")
+        }
         .sheet(isPresented: $locatePanelShown) {
             LocateMissingMediaView(model: model)
         }
@@ -195,6 +268,12 @@ struct LibrarySidebar: View {
 
     @State private var deleteBatch: [LibraryIndex.Entry] = []
     @State private var deleteUsedCount = 0
+    @State private var libraryActionError: String?
+    @State private var songDeletionIDs: [String]?
+    @State private var songDeletionStatus: String?
+    @State private var isPreparingSongDeletion = false
+    @State private var isDeletingSongs = false
+    @State private var songDeletionProgress = 0
 
     @State private var locatePanelShown = false
 
@@ -204,6 +283,52 @@ struct LibrarySidebar: View {
 
     private var deleteConfirmActive: Binding<Bool> {
         Binding(get: { !deleteBatch.isEmpty }, set: { if !$0 { deleteBatch = [] } })
+    }
+
+    private var deleteSongsConfirmActive: Binding<Bool> {
+        Binding(get: { songDeletionIDs != nil }, set: { if !$0 { songDeletionIDs = nil } })
+    }
+
+    private func prepareSongDeletion() {
+        guard !isPreparingSongDeletion, !isDeletingSongs else { return }
+        isPreparingSongDeletion = true
+        songDeletionStatus = "Checking the song library…"
+        Task { @MainActor in
+            defer { isPreparingSongDeletion = false }
+            do {
+                let ids = try await model.songPresentationIDsForDeletion()
+                guard !ids.isEmpty else {
+                    songDeletionStatus = "No songs found."
+                    return
+                }
+                songDeletionStatus = nil
+                songDeletionIDs = ids
+            } catch {
+                songDeletionStatus = nil
+                libraryActionError = error.localizedDescription
+            }
+        }
+    }
+
+    private func deleteAllSongs() {
+        guard let ids = songDeletionIDs else { return }
+        songDeletionIDs = nil
+        isDeletingSongs = true
+        songDeletionProgress = 0
+        songDeletionStatus = "Deleting songs…"
+        Task { @MainActor in
+            defer { isDeletingSongs = false }
+            do {
+                let deleted = try await model.deleteSongPresentations(ids: ids) {
+                    songDeletionProgress = $0
+                    songDeletionStatus = "Deleting songs: \($0) of \(ids.count)…"
+                }
+                songDeletionStatus = "Deleted \(deleted) song\(deleted == 1 ? "" : "s")."
+            } catch {
+                songDeletionStatus = nil
+                libraryActionError = error.localizedDescription
+            }
+        }
     }
 
     private func requestDelete(_ entries: [LibraryIndex.Entry]) {
@@ -220,8 +345,30 @@ struct LibrarySidebar: View {
         }
     }
 
-    private func selectionBatch(for entry: LibraryIndex.Entry, selection: [LibraryIndex.Entry]) -> [LibraryIndex.Entry] {
-        model.selectedEntryIDs.count > 1 && model.selectedEntryIDs.contains(entry.id) ? selection : [entry]
+    private func selectedEntries(matching kinds: [DocumentKind]) -> [LibraryIndex.Entry] {
+        model.selectedEntries().filter { kinds.contains($0.kind) }
+    }
+
+    private func moveSelectedEntries(
+        matching kinds: [DocumentKind], to folder: String?
+    ) {
+        let entries = selectedEntries(matching: kinds)
+        guard !entries.isEmpty else { return }
+        Task { @MainActor in
+            do {
+                try await model.moveToFolder(entries, folder: folder).value
+            } catch {
+                libraryActionError = error.localizedDescription
+            }
+        }
+    }
+
+    private func selectAllInCurrentFolder() {
+        let section = model.selectedSection
+        let entries = folderPath == nil
+            ? model.browserEntries(in: section)
+            : model.items(in: section, at: realPath(folderPath ?? []))
+        model.librarySelection = Set(entries.map(\.id))
     }
 
     private func showInFinder(_ entries: [LibraryIndex.Entry]) {
@@ -318,6 +465,19 @@ struct LibrarySidebar: View {
                     Toggle(choice.title, isOn: Binding(get: { sort == choice }, set: { if $0 { model.setSort(choice, for: section) } }))
                 }
             }
+            if [.presentations, .songs, .media].contains(section) {
+                Divider()
+                Button("Select All") {
+                    selectAllInCurrentFolder()
+                }
+            }
+            if section == .presentations, !runOnly {
+                Divider()
+                Button("Delete All Songs…", role: .destructive) {
+                    prepareSongDeletion()
+                }
+                .disabled(isPreparingSongDeletion || isDeletingSongs)
+            }
             if upcoming {
                 Divider()
                 Toggle("Used in an Upcoming Service", isOn: Binding(get: { model.upcomingOnly }, set: { model.upcomingOnly = $0 }))
@@ -367,8 +527,11 @@ struct LibrarySidebar: View {
         .tag(hit.entry.id)
         .draggable(hit.entry.id)
         .contextMenu {
-            if [.presentation, .media, .audio].contains(hit.entry.kind) {
+            if [.presentation, .song, .media, .audio].contains(hit.entry.kind) {
                 Button("Add to Service") { model.addToCurrentService(hit.entry) }
+            }
+            if hit.entry.kind == .presentation {
+                Button("Review Lyrics & Tags…") { songReviewTarget = hit.entry }
             }
         }
     }
@@ -379,7 +542,8 @@ struct LibrarySidebar: View {
         let stems = TrackSets.stemIDs(model.trackSets)
         let hits = searchHits.filter { hit in
             guard let section = section(for: hit.entry), !stems.contains(hit.entry.id) else { return false }
-            return (searchScopes.isEmpty || searchScopes.contains(section))
+            return (searchScopes.isEmpty || searchScopes.contains(section)
+                    || (hit.entry.kind == .media && searchScopes.contains(.background)))
                 && model.showFiltersAdmit(id: hit.entry.id, kind: hit.entry.kind)
         }
         let cloudHits = cloudSearchHits.filter { item in
@@ -422,15 +586,23 @@ struct LibrarySidebar: View {
     @AppStorage("library.tabOrder") private var tabOrderRaw = ""
     @AppStorage("library.hiddenTabs") private var hiddenTabsRaw = ""
 
-    private var orderedTabs: [LibrarySection] {
-        let stored = tabOrderRaw.split(separator: ",").compactMap {
-            LibrarySection(rawValue: String($0))
-        }
-        var order = stored.filter { LibrarySection.libraryTabs.contains($0) }
-        for section in LibrarySection.libraryTabs where !order.contains(section) {
-            order.append(section)
+    private var orderedTabIDs: [String] {
+        let stored = tabOrderRaw.split(separator: ",").map(String.init)
+        var order = TabRowLogic.mergedOrder(
+            stored: stored,
+            all: LibrarySection.libraryTabs.map(\.rawValue) + ["Bible"]
+        )
+        if !stored.contains(LibrarySection.background.rawValue),
+           let backgroundIndex = order.firstIndex(of: LibrarySection.background.rawValue),
+           let mediaIndex = order.firstIndex(of: LibrarySection.media.rawValue) {
+            order.remove(at: backgroundIndex)
+            order.insert(LibrarySection.background.rawValue, at: mediaIndex + 1)
         }
         return order
+    }
+
+    private var orderedTabs: [LibrarySection] {
+        orderedTabIDs.compactMap(LibrarySection.init(rawValue:))
     }
 
     private var hiddenTabs: Set<LibrarySection> {
@@ -444,26 +616,40 @@ struct LibrarySidebar: View {
         return visible.isEmpty ? orderedTabs : visible
     }
 
+    private var visibleTabIDs: [String] {
+        let visibleSectionIDs = Set(visibleTabs.map(\.rawValue))
+        return orderedTabIDs.filter { $0 == "Bible" || visibleSectionIDs.contains($0) }
+    }
+
     private var sectionPicker: some View {
 
         PriorityTabRow(
             card: "library",
-            tabs: visibleTabs.map { section in
-                PriorityTabDescriptor(
-                    id: section.rawValue,
-                    title: section.displayName,
-                    glyph: section.glyph
-                )
+            tabs: visibleTabIDs.map { id in
+                if let section = LibrarySection(rawValue: id) {
+                    PriorityTabDescriptor(
+                        id: section.rawValue,
+                        title: section.displayName,
+                        glyph: section.glyph
+                    )
+                } else {
+                    PriorityTabDescriptor(id: id, title: id, glyph: .libraries)
+                }
             },
-            selectedID: model.selectedSection.rawValue,
+            selectedID: showingBible ? "Bible" : model.selectedSection.rawValue,
             onSelect: { id in
+                if id == "Bible" {
+                    searchText = ""
+                    showingBible = true
+                    return
+                }
+                showingBible = false
                 if let section = LibrarySection(rawValue: id) {
                     model.switchLibrarySection(section)
                 }
             },
             onReorder: { movedID, beforeID in
-                guard let moved = LibrarySection(rawValue: movedID) else { return }
-                reorderTab(moved, before: beforeID.flatMap(LibrarySection.init(rawValue:)))
+                reorderTab(movedID, before: beforeID)
             }
         ) { _ in
             Section("Libraries") {
@@ -490,12 +676,14 @@ struct LibrarySidebar: View {
         }
     }
 
-    private func reorderTab(_ moved: LibrarySection, before target: LibrarySection?) {
-        var order = orderedTabs
-        order.removeAll { $0 == moved }
-        let index = target.flatMap { order.firstIndex(of: $0) } ?? order.endIndex
-        order.insert(moved, at: index)
-        tabOrderRaw = order.map(\.rawValue).joined(separator: ",")
+    private func reorderTab(_ movedID: String, before targetID: String?) {
+        guard orderedTabIDs.contains(movedID),
+              movedID != targetID else { return }
+        var order = orderedTabIDs
+        order.removeAll { $0 == movedID }
+        let index = targetID.flatMap { order.firstIndex(of: $0) } ?? order.endIndex
+        order.insert(movedID, at: index)
+        tabOrderRaw = order.joined(separator: ",")
     }
 
     private func setTab(_ section: LibrarySection, visible: Bool) {
@@ -606,8 +794,10 @@ struct LibrarySidebar: View {
         var folders: [(name: String, count: Int)]
         var items: [LibraryIndex.Entry]
         var cloud: [TeamCloudItem]
+        var showsUnsorted: Bool
 
         var rows: [LibraryBrowserRow]
+        var totalRows: Int
 
         var tucked: Int
         var menus: RowMenuLists
@@ -618,16 +808,12 @@ struct LibrarySidebar: View {
         var folders: [String]
 
         var playlists: [LibraryIndex.Entry]
-
-        var selection: [LibraryIndex.Entry]
     }
 
     private func rowMenuLists(for section: LibrarySection) -> RowMenuLists {
-        let selection = model.selectedEntryIDs.count > 1 ? model.selectedEntries() : []
         return RowMenuLists(
             folders: AppModel.folderableSections.contains(section) ? model.folders(in: section) : [],
-            playlists: model.playlists(in: section),
-            selection: selection)
+            playlists: model.playlists(in: section))
     }
 
     private func browserContents(folderable: Bool) -> BrowserContents {
@@ -639,17 +825,22 @@ struct LibrarySidebar: View {
         let flat = folderPath == nil || !folderable
         let looseItems = flat ? model.browserEntries(in: section) : model.items(in: section, at: path)
         let looseCloud = flat ? model.cloudItems(in: section) : model.cloudItems(in: section, at: path)
-        let tucksLoose = !folders.isEmpty && !(looseItems.isEmpty && looseCloud.isEmpty)
+        let showsUnsorted = section == .songs && folderPath == []
+        let tucksLoose = showsUnsorted
+            || (!folders.isEmpty && !(looseItems.isEmpty && looseCloud.isEmpty))
         let items = tucksLoose ? [] : looseItems
         let cloud = tucksLoose ? [] : looseCloud
+        let rows = (model.librarySorts[section] ?? .name).merged(items, cloud: cloud, addedAt: model.mediaAddedAt)
         return BrowserContents(
             path: path, folders: folders, items: items, cloud: cloud,
-            rows: (model.librarySorts[section] ?? .name).merged(items, cloud: cloud, addedAt: model.mediaAddedAt),
+            showsUnsorted: showsUnsorted,
+            rows: Array(rows.prefix(visibleRowLimit)), totalRows: rows.count,
             tucked: tucksLoose ? looseItems.count + looseCloud.count : 0, menus: rowMenuLists(for: section))
     }
 
     private func unfiledTitle(at path: [String]) -> String {
-        path.isEmpty ? "Not in a Folder" : "Uncategorized"
+        if model.selectedSection == .songs, path.isEmpty { return "Unsorted Songs" }
+        return path.isEmpty ? "Not in a Folder" : "Uncategorized"
     }
 
     @ViewBuilder
@@ -663,7 +854,7 @@ struct LibrarySidebar: View {
             ForEach(contents.folders, id: \.name) { folder in
                 folderRow(folder.name, count: folder.count, path: path + [folder.name])
             }
-            if contents.tucked > 0 {
+            if contents.tucked > 0 || contents.showsUnsorted {
                 folderRow(
                     unfiledTitle(at: path), count: contents.tucked,
                     path: path + [Self.unfiledToken]
@@ -677,6 +868,12 @@ struct LibrarySidebar: View {
                     Text(item.name).foregroundStyle(.secondary)
                 }
             }
+            if contents.rows.count < contents.totalRows {
+                Button("Load Next \(min(300, contents.totalRows - contents.rows.count)) of \(contents.totalRows - contents.rows.count) More…") {
+                    visibleRowLimit += 300
+                }
+                .frame(maxWidth: .infinity)
+            }
         }
         .listStyle(.inset)
         .scrollContentBackground(.hidden)
@@ -684,7 +881,8 @@ struct LibrarySidebar: View {
             requestDelete(model.selectedEntries())
         }
         .overlay {
-            if contents.items.isEmpty, contents.cloud.isEmpty, contents.folders.isEmpty {
+            if contents.items.isEmpty, contents.cloud.isEmpty, contents.folders.isEmpty,
+               !contents.showsUnsorted {
                 ContentUnavailableView(
                     "No \(model.selectedSection.displayName)",
                     systemImage: model.selectedSection.systemImage,
@@ -786,7 +984,7 @@ struct LibrarySidebar: View {
                         model: model, render: render,
                         name: "All \(model.selectedSection.displayName)",
                         count: all.count,
-                        entries: all
+                        entries: Array(all.prefix(16))
                     ) {
                         folderPath = nil
                     }
@@ -799,7 +997,7 @@ struct LibrarySidebar: View {
                         count: folder.count,
                         entries: model.entriesUnder(
                             in: model.selectedSection, prefix: folderFull
-                        )
+                        ).prefix(16).map { $0 }
                     ) {
                         folderPath = folderFull
                     }
@@ -809,7 +1007,7 @@ struct LibrarySidebar: View {
                         handleDrop(payloads, into: folderFull)
                     }
                 }
-                if contents.tucked > 0 {
+                if contents.tucked > 0 || contents.showsUnsorted {
                     FolderPreviewCard(
                         model: model, render: render,
                         name: unfiledTitle(at: path),
@@ -833,11 +1031,18 @@ struct LibrarySidebar: View {
                             .background(.quaternary.opacity(0.4), in: RoundedRectangle.standard(CornerStandard.element))
                     }
                 }
+                if contents.rows.count < contents.totalRows {
+                    Button("Load Next \(min(300, contents.totalRows - contents.rows.count)) of \(contents.totalRows - contents.rows.count) More…") {
+                        visibleRowLimit += 300
+                    }
+                    .frame(maxWidth: .infinity)
+                }
             }
             .padding(8)
         }
         .overlay {
-            if items.isEmpty, contents.cloud.isEmpty, folders.isEmpty {
+            if items.isEmpty, contents.cloud.isEmpty, folders.isEmpty,
+               !contents.showsUnsorted {
                 ContentUnavailableView(
                     "No \(model.selectedSection.displayName)",
                     systemImage: model.selectedSection.systemImage,
@@ -884,7 +1089,21 @@ struct LibrarySidebar: View {
     }
 
     private func entryRow(_ entry: LibraryIndex.Entry, menus: RowMenuLists) -> some View {
-        EntryRow(model: model, entry: entry)
+        HStack(spacing: 5) {
+            EntryRow(model: model, entry: entry)
+            if entry.kind == .song {
+                Button {
+                    model.openInEditor(entryID: entry.id)
+                    appModeRaw = AppMode.edit.rawValue
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Edit song")
+            }
+        }
             .tag(entry.id)
             .draggable(entry.id)
             .contextMenu { entryMenu(entry, menus: menus) }
@@ -932,71 +1151,79 @@ struct LibrarySidebar: View {
 
     @ViewBuilder
     private func entryMenu(_ entry: LibraryIndex.Entry, menus: RowMenuLists) -> some View {
-        let batch = selectionBatch(for: entry, selection: menus.selection)
-        if batch.count > 1 {
-            massEntryMenu(batch, menus: menus)
+        let hasBulkSelection = model.selectedEntryIDs.count > 1
+            && model.selectedEntryIDs.contains(entry.id)
+        if hasBulkSelection {
+            massEntryMenu(entry, menus: menus)
         } else {
             singleEntryMenu(entry, menus: menus)
         }
         Divider()
-        Button(batch.count > 1 ? "Delete \(batch.count) Items" : "Delete", role: .destructive) {
-            requestDelete(batch.count > 1 ? batch : [entry])
+        Button(hasBulkSelection ? "Delete \(model.selectedEntryIDs.count) Items" : "Delete", role: .destructive) {
+            requestDelete(hasBulkSelection ? model.selectedEntries() : [entry])
         }
     }
 
     @ViewBuilder
-    private func massEntryMenu(_ batch: [LibraryIndex.Entry], menus: RowMenuLists) -> some View {
-        let addable = batch.filter { [.presentation, .media, .audio].contains($0.kind) }
-        if !addable.isEmpty {
-            Button("Add \(addable.count) to Service") {
-                for entry in addable { model.addToCurrentService(entry) }
+    private func massEntryMenu(_ entry: LibraryIndex.Entry, menus: RowMenuLists) -> some View {
+        let selectionCount = model.selectedEntryIDs.count
+        if [.presentation, .song, .media, .audio].contains(entry.kind) {
+            Button("Add Selected Items to Service") {
+                for selected in selectedEntries(matching: [.presentation, .media, .audio]) {
+                    model.addToCurrentService(selected)
+                }
             }
         }
-        let tracks = batch.filter { $0.kind == .media || $0.kind == .audio }
-        let folderable = batch.filter { entry in
-            AppModel.folderableSections.contains { $0.kind == entry.kind }
-        }
         Section("Organize") {
-            if !tracks.isEmpty, tracks.allSatisfy({ $0.kind == .audio }) {
+            if entry.kind == .audio {
                 Menu("Add to Playlist") {
                     ForEach(menus.playlists, id: \.id) { playlist in
                         Button(playlist.name) {
-                            for entry in tracks { model.addToPlaylist(playlist.id, itemID: entry.id) }
+                            for selected in selectedEntries(matching: [.audio]) {
+                                model.addToPlaylist(playlist.id, itemID: selected.id)
+                            }
                         }
                     }
                     if !menus.playlists.isEmpty { Divider() }
                     Button("New Playlist…") {
                         if let id = model.createPlaylist(in: model.selectedSection) {
-                            for entry in tracks { model.addToPlaylist(id, itemID: entry.id) }
+                            for selected in selectedEntries(matching: [.audio]) {
+                                model.addToPlaylist(id, itemID: selected.id)
+                            }
                         }
                     }
                 }
             }
-            if !folderable.isEmpty {
-                Menu("Move to Folder") {
+            if AppModel.folderableSections.contains(model.selectedSection) {
+                Menu("Move \(selectionCount) Selected to Folder") {
                     Button("None") {
-                        for entry in folderable { model.moveToFolder(entry, folder: nil) }
+                        moveSelectedEntries(matching: [entry.kind], to: nil)
                     }
                     if !menus.folders.isEmpty {
                         Divider()
                         ForEach(menus.folders, id: \.self) { folder in
                             Button(folder) {
-                                for entry in folderable { model.moveToFolder(entry, folder: folder) }
+                                moveSelectedEntries(matching: [entry.kind], to: folder)
                             }
                         }
                     }
                 }
             }
         }
-        let decks = batch.filter { $0.kind == .presentation }
-        if !decks.isEmpty, !runOnly {
+        if entry.kind == .presentation, !runOnly {
             Section("Presentation") {
-                Button("Resolution…") { resolutionTarget = .init(ids: decks.map(\.id)) }
+                Button("Resolution…") {
+                    resolutionTarget = .init(
+                        ids: selectedEntries(matching: [.presentation]).map(\.id)
+                    )
+                }
             }
         }
-        if !tracks.isEmpty {
+        if entry.kind == .media || entry.kind == .audio {
             Section("File") {
-                Button("Show in Finder") { showInFinder(tracks) }
+                Button("Show in Finder") {
+                    showInFinder(selectedEntries(matching: [.media, .audio]))
+                }
             }
         }
     }
@@ -1021,6 +1248,11 @@ struct LibrarySidebar: View {
                     mediaID: entry.id, state: mediaMenuState
                 )
             }
+            if model.selectedSection == .background {
+                Button("Use as Global Background") {
+                    model.setGlobalBackground(mediaID: entry.id)
+                }
+            }
         }
         Section("Organize") {
             Button("Rename…") {
@@ -1028,7 +1260,7 @@ struct LibrarySidebar: View {
                 renameText = entry.name
             }
             Button("Duplicate") { model.duplicate(entry) }
-            if AppModel.folderableSections.contains(where: { $0.kind == entry.kind }) {
+            if AppModel.folderableSections.contains(model.selectedSection) {
                 Menu("Move to Folder") {
                     Button("None") { model.moveToFolder(entry, folder: nil) }
                         .disabled(entry.subkind.isEmpty)
@@ -1071,6 +1303,7 @@ struct LibrarySidebar: View {
         if entry.kind == .presentation {
 
             Section("Presentation") {
+                Button("Review Lyrics & Tags…") { songReviewTarget = entry }
                 Button("Apply Theme…") {
                     applyThemeTarget = ApplyThemeTarget(presentationID: entry.id, slideIDs: nil)
                 }
@@ -1078,6 +1311,11 @@ struct LibrarySidebar: View {
                     Button("Resolution…") { resolutionTarget = .init(ids: [entry.id]) }
                 }
                 Button("Export…") { model.exportPresentation(presentationID: entry.id, render: render) }
+            }
+        }
+        if entry.kind == .service {
+            Section("Service") {
+                Button("Run Preflight…") { servicePreflightTarget = entry }
             }
         }
         if entry.kind == .theme {
@@ -1122,6 +1360,7 @@ struct LibrarySidebar: View {
     private func section(for entry: LibraryIndex.Entry) -> LibrarySection? {
         switch entry.kind {
         case .presentation: .presentations
+        case .song: .songs
         case .media: .media
         case .audio: .audio
         case .playlist:
@@ -1143,12 +1382,13 @@ struct LibrarySidebar: View {
     }
 
     private var acceptsImport: Bool {
-        model.selectedSection == .media || model.selectedSection == .audio
+        model.selectedSection == .media || model.selectedSection == .background || model.selectedSection == .audio
     }
 
     private var emptyDescription: String {
         switch model.selectedSection {
-        case .media, .audio: "Drop files here or use Import."
+        case .media, .background, .audio: "Drop files here or use Import."
+        case .songs: "Import lyrics or create a new song."
         default: "Use New to create one."
         }
     }
@@ -1184,6 +1424,22 @@ struct LibrarySidebar: View {
 
     private var footer: some View {
         VStack(spacing: 0) {
+            if let songDeletionStatus {
+                HStack(spacing: 8) {
+                    if isPreparingSongDeletion || isDeletingSongs {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Text(songDeletionStatus)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                Divider()
+            }
             if let summary = model.lastImportSummary {
                 Text(summary)
                     .font(.callout)
@@ -1194,6 +1450,24 @@ struct LibrarySidebar: View {
                 Divider()
             }
             HStack(spacing: 10) {
+                if model.selectedSection == .background {
+                    Button {
+                        showingBackgroundPicker = true
+                    } label: {
+                        Label(globalBackgroundLabel, systemImage: "photo.on.rectangle.angled")
+                    }
+                    .sheet(isPresented: $showingBackgroundPicker) {
+                        LibraryPickerSheet(appModel: model, kind: .media) { entry in
+                            model.setGlobalBackground(mediaID: entry.id)
+                        }
+                    }
+                    if !model.globalBackgroundId().isEmpty {
+                        Button("Clear") {
+                            model.setGlobalBackground(mediaID: nil)
+                        }
+                        .help("Clear the global background")
+                    }
+                }
                 if acceptsImport {
                     Button {
                         presentImportPanel()
@@ -1201,6 +1475,21 @@ struct LibrarySidebar: View {
                         Label("Import…", systemImage: "square.and.arrow.down")
                     }
                     .disabled(model.isImporting)
+                } else if model.selectedSection == .songs {
+                    Menu {
+                        Button("Import Lyrics from Clipboard") {
+                            importingSongClipboard = true
+                        }
+                        Button("New Song from Scratch") {
+                            fileNewEntry(model.createEntity(in: .songs))
+                        }
+                        Button("Import from OpenLyrics") {
+                            importingOpenLyrics = true
+                        }
+                    } label: {
+                        Label("New Song", systemImage: "plus")
+                    }
+                    .fixedSize()
                 } else if model.selectedSection == .confidence {
 
                     Menu {
@@ -1339,7 +1628,8 @@ struct LibrarySidebar: View {
 struct LibraryCommands: Commands {
     @FocusedValue(\.presentLibrarySearch) private var presentSearch
     @FocusedValue(\.presentLyricImport) private var presentLyricImport
-    @FocusedValue(\.presentWorkspaceImport) private var presentWorkspaceImport
+    @FocusedValue(\.presentSongImport) private var presentSongImport
+    @FocusedValue(\.presentOpenLyricsImport) private var presentOpenLyricsImport
     @FocusedValue(\.libraryModel) private var model
     @FocusedValue(\.slideEditor) private var slideEditor
     @FocusedValue(\.presentNewSlide) private var presentNewSlide
@@ -1383,15 +1673,15 @@ struct LibraryCommands: Commands {
                 .disabled(presentSearch == nil || runOnly)
         }
         CommandGroup(after: .importExport) {
-            Button("Import Lyrics…") { presentLyricImport?() }
+            Button("Import Lyrics to Slides…") { presentLyricImport?() }
                 .disabled(presentLyricImport == nil || runOnly)
-            Button("Import from ProPresenter…") { importProPresenter() }
-                .disabled(model == nil || runOnly)
-            Button("Import ProPresenter Workspace…") { presentWorkspaceImport?() }
-                .disabled(presentWorkspaceImport == nil || runOnly)
+            Button("Import Lyrics to Songs…") { presentSongImport?() }
+                .disabled(presentSongImport == nil || runOnly)
+            Button("Import OpenLyrics Songs…") { presentOpenLyricsImport?() }
+                .disabled(presentOpenLyricsImport == nil || runOnly)
             Button("Import PowerPoint…") { importPowerPoint() }
                 .disabled(model == nil || runOnly)
-            Button("Import MxU Slides Presentation…") { model?.presentPresentationFileImport() }
+            Button("Import Chorus Presentation…") { model?.presentPresentationFileImport() }
                 .disabled(model == nil || runOnly)
             Divider()
             Button("Export Library Backup…") { exportBackup() }
@@ -1406,25 +1696,6 @@ struct LibraryCommands: Commands {
         model.selectedSection = section
         model.selectedEntryID = id
         model.libraryRevealID = id
-    }
-
-    private func importProPresenter() {
-        guard let model else { return }
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = ["pro", "probundle", "proPlaylist", "protheme"].compactMap { UTType(filenameExtension: $0) }
-        panel.message = "Choose .pro documents, .probundle, .proPlaylist, or .protheme exports, or a ProPresenter library folder"
-        if let showDirectory = ProPresenterImporter.proPresenterShowDirectory() {
-            panel.directoryURL = showDirectory
-        }
-        panel.begin { response in
-            guard response == .OK, !panel.urls.isEmpty else { return }
-            let urls = panel.urls
-            Task { @MainActor in
-                await model.runProPresenterImport(urls)
-            }
-        }
     }
 
     private func importPowerPoint() {
@@ -1495,76 +1766,6 @@ extension AppModel {
         return importedIDs
     }
 
-    @discardableResult
-    func runProPresenterImport(_ urls: [URL]) async -> [String] {
-        let playlistBundles = urls.filter { $0.pathExtension.lowercased() == "proplaylist" }
-        let themes = urls.filter { $0.pathExtension.lowercased() == "protheme" }
-        let documents = urls.filter { !["proplaylist", "protheme"].contains($0.pathExtension.lowercased()) }
-
-        let activity = ImportActivityModel(title: "Import from ProPresenter")
-        ImportActivityWindow.present(activity)
-
-        var summaryLines: [String] = []
-        var warnings: [String] = []
-        var landed: [String] = []
-
-        if !themes.isEmpty {
-            activity.phase = "Themes"
-            activity.detail = ""
-            let summaries = await importProPresenterThemes(urls: themes)
-            let imported = summaries.filter { $0.themeID != nil && $0.skipped == nil }
-            let mediaCount = summaries.reduce(0) { $0 + $1.mediaImported }
-            summaryLines.append("\(imported.count) of \(summaries.count) themes imported\(mediaCount > 0 ? ", \(mediaCount) media files" : "")")
-            for summary in summaries {
-                if let reason = summary.skipped {
-                    warnings.append("△ \(summary.name): kept the copy already here (\(reason == .edited ? "edited in MxU Slides" : "existing"))")
-                } else if summary.themeID == nil {
-                    warnings.append("✕ \(summary.name): \(summary.warnings.joined(separator: "; "))")
-                } else if !summary.warnings.isEmpty {
-                    warnings.append("△ \(summary.name): \(summary.warnings.joined(separator: "; "))")
-                }
-            }
-        }
-
-        if !documents.isEmpty {
-            activity.phase = "Presentations"
-            let summaries = await importProPresenter(urls: documents) { url in
-                activity.detail = url.deletingPathExtension().lastPathComponent
-            }
-            let imported = summaries.filter { $0.presentationID != nil }
-            landed = imported.compactMap(\.presentationID)
-            let mediaCount = summaries.reduce(0) { $0 + $1.mediaImported }
-            summaryLines.append("\(imported.count) of \(summaries.count) documents imported\(mediaCount > 0 ? ", \(mediaCount) media files" : "")")
-            for summary in summaries where summary.presentationID == nil {
-                warnings.append("✕ \(summary.name): \(summary.warnings.joined(separator: "; "))")
-            }
-            for summary in summaries where summary.presentationID != nil && !summary.warnings.isEmpty {
-                warnings.append("△ \(summary.name): \(summary.warnings.joined(separator: "; "))")
-            }
-        }
-
-        if !playlistBundles.isEmpty {
-            activity.phase = "Playlists"
-            activity.detail = ""
-            let summaries = await importProPresenterPlaylists(urls: playlistBundles)
-            for (url, summary) in zip(playlistBundles, summaries) {
-                if let reason = summary.failureReason {
-                    warnings.append("✕ \(url.lastPathComponent): \(reason)")
-                    continue
-                }
-                if !summary.services.isEmpty {
-                    summaryLines.append("\(summary.services.joined(separator: ", ")) → Services (\(summary.documents.count) presentations)")
-                }
-                warnings.append(contentsOf: summary.warnings)
-                for document in summary.documents where document.presentationID == nil {
-                    warnings.append("✕ \(document.name): \(document.warnings.joined(separator: "; "))")
-                }
-            }
-        }
-
-        activity.finish(summaryLines: summaryLines, warnings: warnings)
-        return landed
-    }
 }
 
 struct MultiViewBadge: View {
@@ -2067,6 +2268,37 @@ struct LyricsThemeChooser: View {
     private func pick(_ themeId: String, design: String?) {
         onPick(themeId, design)
         choosing = false
+    }
+}
+
+struct BackgroundChooser: View {
+    let model: AppModel
+    let render: RenderContext?
+
+    @State private var showingPicker = false
+
+    var body: some View {
+        Button {
+            showingPicker = true
+        } label: {
+            Label(globalBackgroundLabel, systemImage: "photo.on.rectangle.angled")
+        }
+        .fixedSize()
+        .help("Select a global background that applies to all presentations without their own background")
+        .sheet(isPresented: $showingPicker) {
+            LibraryPickerSheet(appModel: model, kind: .media) { entry in
+                model.setGlobalBackground(mediaID: entry.id)
+            }
+        }
+    }
+
+    private var globalBackgroundLabel: String {
+        let mediaId = model.globalBackgroundId()
+        if mediaId.isEmpty {
+            return "Global Background: None"
+        } else {
+            return "Global Background: " + (model.indexEntry(mediaId)?.name ?? "Missing")
+        }
     }
 }
 

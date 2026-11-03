@@ -39,6 +39,8 @@ private func song(_ id: String, _ name: String) -> Presentation {
 
     #expect(try library.index.search("amaz").map(\.id) == ["s1"])
     #expect(try library.index.search("great are").map(\.id) == ["s2"])
+    #expect(try library.index.search("amzing grace").map(\.id) == ["s1"])
+    #expect(try library.index.search("greatre you lrod").map(\.id) == ["s2"])
     #expect(try library.index.search("nope").isEmpty)
     #expect(try library.index.search("  ").isEmpty)
 

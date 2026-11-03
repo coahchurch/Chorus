@@ -1,6 +1,6 @@
 {
  "id": "welcome.presentation",
- "name": "Welcome to MxU Slides",
+ "name": "Welcome to Chorus",
  "presentationKind": "deck",
  "slides": [
   {
@@ -9,7 +9,7 @@
     "fillKind": "solid"
    },
    "id": "welcome.presentation.welcome",
-   "name": "Welcome to MxU Slides",
+   "name": "Welcome to Chorus",
    "objects": [
     {
      "height": 60,
@@ -53,7 +53,7 @@
      "id": "welcome.presentation.welcome.title",
      "name": "Title",
      "objectKind": "text",
-     "text": "Welcome to MxU Slides",
+     "text": "Welcome to Chorus",
      "textStyle": {
       "colorHex": "#FFFFFFFF",
       "fontName": "HelveticaNeue-Bold",

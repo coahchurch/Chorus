@@ -566,8 +566,8 @@ final class MIDIOutService: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         if !ready {
-            guard MIDIClientCreate("MxU Slides" as CFString, nil, nil, &client) == noErr,
-                  MIDIOutputPortCreate(client, "MxU Slides Out" as CFString, &port) == noErr
+            guard MIDIClientCreate("Chorus" as CFString, nil, nil, &client) == noErr,
+                  MIDIOutputPortCreate(client, "Chorus Out" as CFString, &port) == noErr
             else { return }
             ready = true
         }

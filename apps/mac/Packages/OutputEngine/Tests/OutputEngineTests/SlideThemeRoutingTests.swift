@@ -69,4 +69,21 @@ final class SlideThemeRoutingTests: XCTestCase {
                       "non-routed layers hide on the variant exactly like the base")
         XCTAssertFalse(composited.layers.first { $0.kind == .slide }!.isHidden)
     }
+
+    func testTransparentBackgroundIsScopedToDedicatedOutput() throws {
+        let outputs = try makeManager()
+        let lowerThird = UUID().uuidString
+        let projector = UUID().uuidString
+        outputs.sceneProvider = { taggedScene(100) }
+        outputs.setTransparentBackgroundTargets([lowerThird])
+
+        XCTAssertEqual(
+            outputs.previewProvider(for: lowerThird)().background.alpha, 0,
+            "lower-third feed should preserve transparency for downstream compositing"
+        )
+        XCTAssertEqual(
+            outputs.previewProvider(for: projector)().background.alpha, 1,
+            "unrelated outputs keep their existing opaque background"
+        )
+    }
 }

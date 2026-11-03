@@ -11,7 +11,7 @@ IDENTITY="${DEVELOPER_ID_IDENTITY:?set DEVELOPER_ID_IDENTITY to your Developer I
 PROFILE="notarization-profile"
 DIST="$MAC_DIR/build/dist"
 DERIVED="$MAC_DIR/build/release-deriveddata"
-APP="$DERIVED/Build/Products/Release/MxU Slides.app"
+APP="$DERIVED/Build/Products/Release/COAH Chorus.app"
 
 BUILD_NUMBER="$(git -C "$MAC_DIR" rev-list --count HEAD)"
 GIT_COMMIT="$(git -C "$MAC_DIR" rev-parse --short=10 HEAD)"
@@ -20,8 +20,6 @@ if [ -n "$(git -C "$MAC_DIR" status --porcelain --untracked-files=no -- "$MAC_DI
 fi
 echo "==> Build $BUILD_NUMBER, commit $GIT_COMMIT"
 
-PROTO_DIR="$MAC_DIR/Packages/ProImport/Sources/ProImport/Generated"
-[ -d "$PROTO_DIR" ] || { echo "ProPresenter protobuf sources missing at $PROTO_DIR: run apps/mac/scripts/generate-propresenter-proto.sh first" >&2; exit 1; }
 [ -f "/Library/NDI SDK for Apple/include/Processing.NDI.Lib.h" ] || { echo "NDI SDK for Apple missing at /Library/NDI SDK for Apple" >&2; exit 1; }
 rm -rf ~/Library/Caches/org.swift.swiftpm/manifests
 
@@ -30,8 +28,8 @@ xcodegen generate --spec "$MAC_DIR/project.yml" --project "$MAC_DIR" | tail -1
 
 echo "==> Building Release (arm64)"
 mkdir -p "$MAC_DIR/build"
-xcodebuild -project "$MAC_DIR/MxUSlides.xcodeproj" \
-  -scheme MxUSlides -configuration Release \
+xcodebuild -project "$MAC_DIR/Chorus.xcodeproj" \
+  -scheme Chorus -configuration Release \
   -derivedDataPath "$DERIVED" -destination 'generic/platform=macOS' \
   -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile \
   CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= \
@@ -45,13 +43,13 @@ xcodebuild -project "$MAC_DIR/MxUSlides.xcodeproj" \
 tail -5 "$MAC_DIR/build/xcodebuild.log"
 
 VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")
-DMG="$DIST/MxU-Slides-$VERSION.dmg"
+DMG="$DIST/COAH-Chorus-$VERSION.dmg"
 rm -rf "$DIST" && mkdir -p "$DIST"
 
 DSYM="$APP.dSYM"
 [ -d "$DSYM" ] || { echo "No dSYM at $DSYM" >&2; exit 1; }
 ditto "$DSYM" "$DIST/$(basename "$DSYM")"
-xcrun dwarfdump --uuid "$APP/Contents/MacOS/MxU Slides" "$DIST/$(basename "$DSYM")"
+xcrun dwarfdump --uuid "$APP/Contents/MacOS/COAH Chorus" "$DIST/$(basename "$DSYM")"
 
 NDI_DYLIB="$APP/Contents/XPCServices/NDIHelper.xpc/Contents/Frameworks/libndi.dylib"
 NDI_LICENSES="/Library/NDI SDK for Apple/lib/macOS/libndi_licenses.txt"
@@ -67,7 +65,7 @@ for HELPER in "$APP"/Contents/XPCServices/*.xpc; do
 done
 codesign --force --options runtime --timestamp \
   --identifier com.example.mxuslides.TracksPlayer \
-  --sign "$IDENTITY" "$APP/Contents/MacOS/MxU Tracks Player"
+  --sign "$IDENTITY" "$APP/Contents/MacOS/COAH Chorus Tracks Player"
 codesign --force --options runtime --timestamp \
   --entitlements "$MAC_DIR/Signing/MxUSlides.entitlements" \
   --sign "$IDENTITY" "$APP"
@@ -84,7 +82,7 @@ STAGE="$DIST/stage"
 mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "MxU Slides" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+hdiutil create -volname "COAH Chorus" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 rm -rf "$STAGE"
 codesign --force --timestamp --sign "$IDENTITY" "$DMG"
 

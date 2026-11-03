@@ -11,7 +11,7 @@ public enum PresentationExport {
 
         public var label: String {
             switch self {
-            case .slidesFile: "MxU Slides Presentation (.\(SlidesPresentationFile.fileExtension))"
+            case .slidesFile: "Chorus Presentation (.\(SlidesPresentationFile.fileExtension))"
             case .pdf: "PDF (.pdf)"
             case .images: "Slide Images (PNG)"
             case .plainText: ChordProExport.FileFormat.plainText.label
@@ -61,7 +61,8 @@ public enum PresentationExport {
         for presentation: Presentation, format: Format, typed: String?
     ) -> String {
         if let typed, !typed.isEmpty {
-            let known = Format.allCases.compactMap(\.fileExtension).map { "." + $0 }
+            let known = (Format.allCases.compactMap(\.fileExtension)
+                + Array(SlidesPresentationFile.legacyFileExtensions)).map { "." + $0 }
             let base = known.first { typed.lowercased().hasSuffix($0) }.map { String(typed.dropLast($0.count)) } ?? typed
             return base + (format.fileExtension.map { "." + $0 } ?? "")
         } else {

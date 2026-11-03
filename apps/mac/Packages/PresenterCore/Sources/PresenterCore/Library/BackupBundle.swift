@@ -20,9 +20,9 @@ public enum BackupBundle {
         public var errorDescription: String? {
             switch self {
             case .notABackup(let name):
-                "“\(name)” isn't an MxU Slides library backup."
+                "“\(name)” isn't a Chorus library backup."
             case .unsupportedFormat(let version):
-                "This backup was made by a newer MxU Slides (format \(version)). Update the app to import it."
+                "This backup was made by a newer Chorus (format \(version)). Update the app to import it."
             }
         }
     }

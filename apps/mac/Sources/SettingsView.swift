@@ -17,6 +17,7 @@ struct AppSettingsView: View {
     @Environment(\.dismissWindow) private var dismissWindow
 
     @AppStorage("app.appearance") private var appearanceRaw = AppAppearance.dark.rawValue
+    @AppStorage("app.language") private var languageRaw = AppLanguage.english.rawValue
     @AppStorage("present.continuous") private var continuousPresent = true
     @AppStorage("slideGrid.roundedCorners") private var roundedCorners = true
     @AppStorage("slideGrid.hideScopedBackgrounds") private var hideScopedBackgrounds = true
@@ -121,7 +122,7 @@ struct AppSettingsView: View {
                     .font(.system(size: 10))
                     .foregroundStyle(selected ? .primary : .secondary)
                     .frame(width: 16)
-                Text(entry.title)
+                Text(LocalizedStringKey(entry.title))
                     .font(.system(size: 11, weight: selected ? .medium : .regular))
                     .foregroundStyle(selected ? .primary : .secondary)
                 Spacer()
@@ -147,14 +148,16 @@ struct AppSettingsView: View {
                 ForEach(SettingsCategory.allCases) { entry in
                     let matches = rows.filter { $0.category == entry }
                     if !matches.isEmpty {
-                        Section(entry.title) {
+                        Section(LocalizedStringKey(entry.title)) {
                             ForEach(matches) { spec in
                                 if spec.stacked || spec.id == "streamRecord.pane" {
                                     LabeledContent {
                                         Button("Show") { query = ""; category = entry }
                                     } label: {
-                                        Text(spec.title)
-                                        if let caption = spec.caption { Text(caption).font(.caption).foregroundStyle(.secondary) }
+                                        Text(LocalizedStringKey(spec.title))
+                                        if let caption = spec.caption {
+                                            Text(LocalizedStringKey(caption)).font(.caption).foregroundStyle(.secondary)
+                                        }
                                     }
                                 } else {
                                     SettingsFormRow(spec: spec)
@@ -184,9 +187,26 @@ struct AppSettingsView: View {
                 keywords: "theme dark light system color scheme",
                 control: AnyView(
                     Picker("", selection: $appearanceRaw) {
-                        ForEach(AppAppearance.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                        ForEach(AppAppearance.allCases, id: \.rawValue) {
+                            Text(LocalizedStringKey($0.title)).tag($0.rawValue)
+                        }
                     }
                     .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                )
+            ),
+            SettingsRowSpec(
+                id: "appearance.language",
+                title: "Language",
+                caption: "Choose English or Tamil for the app interface.",
+                keywords: "language localization English Tamil",
+                control: AnyView(
+                    Picker("Language", selection: $languageRaw) {
+                        ForEach(AppLanguage.allCases, id: \.rawValue) { language in
+                            Text(language.title).tag(language.rawValue)
+                        }
+                    }
                     .labelsHidden()
                     .fixedSize()
                 )
@@ -210,6 +230,22 @@ struct AppSettingsView: View {
                     kindKey: "transition.slide.kind", durationKey: "transition.slide.duration",
                     fallbackKind: "", fallbackDuration: 0.5
                 ))
+            ),
+            SettingsRowSpec(
+                id: "present.defaultSongTheme",
+                title: "Default song theme",
+                caption: "Use this theme for songs without an assigned theme and for new lyric imports.",
+                keywords: "song lyrics default theme presentation slides look",
+                control: AnyView(
+                    Group {
+                        if let model {
+                            LyricsThemeChooser.lyrics(
+                                model, render: controls?.render, picksDesigns: false)
+                        } else {
+                            Text("Unavailable").foregroundStyle(.secondary)
+                        }
+                    }
+                )
             ),
 
             SettingsRowSpec(
@@ -700,10 +736,10 @@ private struct SettingsRowView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(spec.title)
+            Text(LocalizedStringKey(spec.title))
                 .font(.system(size: 11, weight: .medium))
             if let caption = spec.caption {
-                Text(caption)
+                Text(LocalizedStringKey(caption))
                     .font(.system(size: 9))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

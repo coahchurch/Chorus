@@ -71,11 +71,10 @@ public final class LocalAPIServer: @unchecked Sendable {
         await http.appendRoute(HTTPRoute("GET /docs")) { request in
             let host = request.headers[.host] ?? "localhost"
             let page = DocsPage.html(routes: docRoutes, baseURL: host, schemaVersion: specVersion)
-            return HTTPResponse(
-                statusCode: .ok,
-                headers: [HTTPHeader("Content-Type"): "text/html; charset=utf-8"],
-                body: Data(page.utf8)
-            )
+            return Self.htmlResponse(page)
+        }
+        await http.appendRoute(HTTPRoute("GET /remote")) { _ in
+            Self.htmlResponse(RemoteControlPage.html)
         }
 
         let router = self.router
@@ -153,6 +152,16 @@ public final class LocalAPIServer: @unchecked Sendable {
             statusCode: HTTPStatusCode(payload.status, phrase: ""),
             headers: headers,
             body: payload.body
+        )
+    }
+
+    private static func htmlResponse(_ html: String) -> HTTPResponse {
+        var headers = HTTPHeaders()
+        headers[.contentType] = "text/html; charset=utf-8"
+        return HTTPResponse(
+            statusCode: .ok,
+            headers: headers,
+            body: Data(html.utf8)
         )
     }
 

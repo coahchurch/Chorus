@@ -7,7 +7,7 @@ public enum SyncScope: String, Codable, CaseIterable, Sendable {
 
     public static func scope(for kind: DocumentKind) -> SyncScope {
         switch kind {
-        case .presentation, .service, .theme, .media, .audio, .playlist, .overlay,
+        case .presentation, .song, .service, .theme, .media, .audio, .playlist, .overlay,
              .alertPreset, .actionCombo, .scheduleTrigger, .confidenceLayout, .groupPalette,
              .effectPresetBoard, .animationPresetBoard, .serviceLinkRules, .note, .slideBuildingSettings, .font,
              .trackChannelList, .trackSet:
@@ -31,6 +31,7 @@ public enum SyncScope: String, Codable, CaseIterable, Sendable {
     public static func entityType(for kind: DocumentKind) -> any DocumentEntity.Type {
         switch kind {
         case .presentation: Presentation.self
+        case .song: SongLyrics.self
         case .service: Service.self
         case .theme: Theme.self
         case .media: MediaItem.self
@@ -104,7 +105,7 @@ public protocol TeamFolderedEntity: FolderedEntity {
 
 public enum TeamFoldered {
 
-    public static let kinds: Set<DocumentKind> = [.presentation, .overlay, .media, .audio, .confidenceLayout]
+    public static let kinds: Set<DocumentKind> = [.presentation, .song, .overlay, .media, .audio, .confidenceLayout]
 }
 
 public enum LibraryHome {
@@ -152,15 +153,18 @@ public enum LibraryHome {
     }
 
     public static func folder(for kind: DocumentKind, named: String?, viewing: Viewed?) -> String? {
-        if !TeamFoldered.kinds.contains(kind) {
-            nil
-        } else if let named, !named.isEmpty {
-            named
-        } else if let viewing, viewing.kind == kind, viewing.area == .team, !viewing.path.isEmpty {
-            viewing.path
-        } else {
-            needsSorted
+        guard TeamFoldered.kinds.contains(kind) else { return nil }
+        if kind == .song, named == nil {
+            guard let viewing, viewing.kind == kind, viewing.area == .team,
+                  !viewing.path.isEmpty
+            else { return nil }
+            return viewing.path
         }
+        if let named, !named.isEmpty { return named }
+        if let viewing, viewing.kind == kind, viewing.area == .team, !viewing.path.isEmpty {
+            return viewing.path
+        }
+        return needsSorted
     }
 
     public struct Placement: Equatable, Sendable {

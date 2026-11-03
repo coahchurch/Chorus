@@ -57,7 +57,7 @@ const slide = (id, line) => ({
 
 console.log('discovery')
 const ping = await (await fetch(`${BASE}/v1/ping`)).json()
-ok('ping answers unauthenticated', ping.product === 'MxU Slides')
+ok('ping answers unauthenticated', ping.product === 'COAH Chorus')
 
 const openapi = await (await fetch(`${BASE}/openapi.json`)).json()
 ok('OpenAPI document serves', openapi.openapi === '3.1.0')

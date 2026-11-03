@@ -6,7 +6,6 @@ struct LibraryPickerDeckRow: View {
     let render: RenderContext?
     let entry: LibraryIndex.Entry
 
-    let proPresenterIDs: Set<String>
     var snippet: String? = nil
     var accessory: String? = nil
     let onPick: () -> Void
@@ -65,13 +64,7 @@ struct LibraryPickerDeckRow: View {
     }
 
     private var origin: String {
-        if !entry.origin.isEmpty {
-            entry.origin
-        } else if proPresenterIDs.contains(entry.id) {
-            "ProPresenter import"
-        } else {
-            ""
-        }
+        entry.origin
     }
 
     private var details: String {
@@ -117,7 +110,7 @@ private struct DeckPeek: View {
                         SlideThumbnailView(
                             model: appModel, render: render,
                             slide: slide, presentation: presentation,
-                            theme: appModel.theme(presentation.themeId),
+                            theme: appModel.theme(for: presentation),
                             arrangementId: nil,
                             hideScopedBackgrounds: false,
                             contentStamp: "peek-\(entry.updatedAt.timeIntervalSince1970)"

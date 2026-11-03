@@ -13,34 +13,23 @@ function fixture(t) {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, 'scripts'));
   cpSync(join(macDir, 'scripts/prepare-dependencies.mjs'), join(root, 'scripts/prepare-dependencies.mjs'));
-  for (const name of ['LocalAPI', 'StreamEngine', 'ProImport']) {
+  for (const name of ['LocalAPI', 'StreamEngine']) {
     mkdirSync(join(root, 'Packages', name), { recursive: true });
     cpSync(join(macDir, 'Packages', name, 'Package.resolved'), join(root, 'Packages', name, 'Package.resolved'));
   }
   return {
     root,
-    lock: join(root, 'MxUSlides.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved'),
+    lock: join(root, 'Chorus.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved'),
     run: (...args) => spawnSync(process.execPath, [join(root, 'scripts/prepare-dependencies.mjs'), ...args], { encoding: 'utf8' }),
   };
 }
 
-test('pins both optional-dependency configurations from the committed package locks', t => {
+test('pins app dependencies from the committed package locks', t => {
   const f = fixture(t);
   assert.equal(f.run().status, 0);
   assert.equal(f.run('--check').status, 0);
-  const stubPins = JSON.parse(readFileSync(f.lock)).pins;
-  assert.deepEqual(stubPins.map(p => p.identity), ['flyingfox', 'haishinkit.swift', 'logboard']);
-  const generated = join(f.root, 'Packages/ProImport/Sources/ProImport/Generated');
-  mkdirSync(generated, { recursive: true });
-  assert.notEqual(f.run('--check').status, 0, 'a stale stub lock must not pass a full build');
-  assert.equal(f.run().status, 0);
-  assert.equal(f.run('--check').status, 0);
-  const fullPins = JSON.parse(readFileSync(f.lock)).pins;
-  assert.deepEqual(fullPins, [...stubPins, ...JSON.parse(readFileSync(join(f.root, 'Packages/ProImport/Package.resolved'))).pins]);
-  rmSync(generated, { recursive: true });
-  assert.notEqual(f.run('--check').status, 0, 'a stale full lock must not pass a stub build');
-  assert.equal(f.run().status, 0);
-  assert.equal(f.run('--check').status, 0);
+  const pins = JSON.parse(readFileSync(f.lock)).pins;
+  assert.deepEqual(pins.map(p => p.identity), ['flyingfox', 'haishinkit.swift', 'logboard']);
 });
 
 test('rejects missing or changed app pins', t => {

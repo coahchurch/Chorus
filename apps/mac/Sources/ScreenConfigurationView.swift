@@ -623,6 +623,7 @@ private struct ScreenDetail: View {
             )) {
                 Text("Audience").tag(ScreenRole.audience)
                 Text("Confidence").tag(ScreenRole.confidence)
+                Text("Live Stream").tag(ScreenRole.liveStream)
             }
             .pickerStyle(.segmented)
             .controlSize(.small)

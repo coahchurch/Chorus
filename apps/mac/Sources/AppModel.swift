@@ -4,7 +4,6 @@ import Foundation
 import Observation
 import PPTXImport
 import PresenterCore
-import ProImport
 import RenderEngine
 import SlideScene
 import struct SwiftUI.Binding
@@ -17,7 +16,9 @@ enum LibrarySection: String, CaseIterable, Identifiable {
     case presentations = "Presentations"
     case overlays = "Overlays"
     case media = "Media"
+    case background = "Background"
     case audio = "Audio"
+    case songs = "Songs"
     case themes = "Themes"
     case confidence = "Confidence"
 
@@ -28,15 +29,16 @@ enum LibrarySection: String, CaseIterable, Identifiable {
         case .services: .service
         case .presentations: .presentation
         case .overlays: .overlay
-        case .media: .media
+        case .media, .background: .media
         case .audio: .audio
+        case .songs: .song
         case .themes: .theme
         case .confidence: .confidenceLayout
         }
     }
 
     var isBrowseOnly: Bool {
-        self == .media || self == .audio
+        self == .media || self == .background || self == .audio
     }
 
     var playlistKind: PlaylistKind? {
@@ -59,8 +61,9 @@ enum LibrarySection: String, CaseIterable, Identifiable {
         case .services: "calendar"
         case .presentations: "rectangle.on.rectangle"
         case .overlays: "rectangle.inset.filled.on.rectangle"
-        case .media: "photo.on.rectangle.angled"
+        case .media, .background: "photo.on.rectangle.angled"
         case .audio: "waveform"
+        case .songs: "music.note.list"
         case .themes: "paintpalette"
         case .confidence: "text.below.photo"
         }
@@ -70,6 +73,17 @@ enum LibrarySection: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class AppModel {
+    enum SongDeletionError: LocalizedError {
+        case unreadablePresentations(Int)
+
+        var errorDescription: String? {
+            switch self {
+            case .unreadablePresentations(let count):
+                "Could not safely identify songs because \(count) presentation file\(count == 1 ? "" : "s") could not be read. No songs were deleted."
+            }
+        }
+    }
+
     let client: LibraryClient
     let importer: MediaImporter?
     let transcodeQueue: TranscodeQueue?
@@ -214,8 +228,12 @@ final class AppModel {
 
     func warmLiveSet() {
         let service = currentServiceID.flatMap { try? self.service($0) }
-        decks.pin(ResidentDecks.liveSet(runOfShow: service.map(runOfShow) ?? [], onAir: onAirDeckID))
+        let run = service.map(runOfShow) ?? []
+        decks.pin(ResidentDecks.liveSet(runOfShow: run, onAir: onAirDeckID))
         client.warmLive(decks.pinned)
+        for id in Set(run.filter { $0.itemKind == .song }.map(\.refId)) {
+            requestWarmSong(id)
+        }
     }
 
     func noteOnAirDeck(_ id: String?) {
@@ -251,6 +269,18 @@ final class AppModel {
     @ObservationIgnored private var appliedListing: IndexSnapshot?
 
     @ObservationIgnored let kindVersions = DocumentKindVersions()
+
+    @ObservationIgnored private var browserEntriesCache: (key: BrowserEntriesCacheKey, entries: [LibraryIndex.Entry])?
+
+    private struct BrowserEntriesCacheKey: Equatable {
+        let section: LibrarySection
+        let generation: Int
+        let listVersion: Int
+        let sort: String
+        let viewedFolder: LibraryHome.Viewed?
+        let upcomingOnly: Bool
+        let upcomingIds: Set<String>
+    }
 
     @ObservationIgnored let tableFills = DocumentKindVersions()
 
@@ -403,6 +433,14 @@ final class AppModel {
     private func warmLiveSetFilled() async {
         warmLiveSet()
         _ = await decks.ready(Array(decks.pinned))
+        let songIDs = currentServiceID
+            .flatMap { try? service($0) }
+            .map { service in
+                runOfShow(service).filter { $0.itemKind == .song }.map(\.refId)
+            } ?? []
+        for id in songIDs {
+            _ = await loadSong(id)
+        }
     }
 
     private(set) var needsOnboarding = false
@@ -494,8 +532,7 @@ final class AppModel {
 
         let earlier = (1...19).map { rootURL.appendingPathComponent(".seeded-starter-packs-v\($0)") }
         let recent = (20...22).map { rootURL.appendingPathComponent(".seeded-starter-packs-v\($0)") }
-        let marker = rootURL.appendingPathComponent(".seeded-starter-packs-v23")
-        guard !FileManager.default.fileExists(atPath: marker.path) else { return }
+        let marker = rootURL.appendingPathComponent(".seeded-starter-packs-v24")
         defer { FileManager.default.createFile(atPath: marker.path, contents: nil) }
         let repairV1 = earlier.contains { FileManager.default.fileExists(atPath: $0.path) }
         let gentleRepair = recent.contains { FileManager.default.fileExists(atPath: $0.path) }
@@ -534,6 +571,16 @@ final class AppModel {
                         $0.objects = overlay.objects; $0.animationOrder = overlay.animationOrder
                     }
                     try prepared.save(document)
+                } else if overlay.name == "Lyrics (Lower Third)" {
+                    let document = try prepared.open(Overlay.self, id: overlay.id)
+                    if document.value.animationOrder?.isEmpty != true
+                        || document.value.objects.contains(where: { !($0.animationSteps?.isEmpty ?? true) }) {
+                        _ = try document.update {
+                            $0.objects = overlay.objects
+                            $0.animationOrder = overlay.animationOrder
+                        }
+                        try prepared.save(document)
+                    }
                 }
             }
             if repairV1 {
@@ -613,6 +660,36 @@ final class AppModel {
         indexSnapshot.entries(of: kind, subkind: subkind)
     }
 
+    func songPresentationIDsForDeletion() async throws -> [String] {
+        try await client.rebuildIndex().value
+        let reader = try await client.reader()
+        let ids = try await reader.ids(of: .presentation)
+        let loaded = await reader.loadValues(
+            Presentation.self, ids: ids, priority: .utility,
+            project: { $0.presentationKind == .song }
+        )
+        guard loaded.failed.isEmpty else {
+            throw SongDeletionError.unreadablePresentations(loaded.failed.count)
+        }
+        return loaded.values.compactMap { $0.value ? $0.key : nil }.sorted()
+    }
+
+    func deleteSongPresentations(
+        ids: [String], progress: @MainActor (Int) -> Void
+    ) async throws -> Int {
+        let batchSize = 250
+        var deleted = 0
+        for start in stride(from: 0, to: ids.count, by: batchSize) {
+            let end = min(start + batchSize, ids.count)
+            let keys = ids[start..<end].map { SyncLedger.Key(kind: .presentation, id: $0) }
+            try await client.delete(keys).value
+            deleted = end
+            progress(deleted)
+            await Task.yield()
+        }
+        return deleted
+    }
+
     var upcomingOnly = false {
         didSet {
             listVersion += 1
@@ -688,6 +765,12 @@ final class AppModel {
     }
 
     @discardableResult
+    func createInDrive<E: DocumentEntity>(_ values: [E]) -> Task<LibraryBatch, any Error> {
+        let filedValues = values.map { filed($0, folder: nil) }
+        return client.create(filedValues, area: LibraryHome.area(for: E.documentKind))
+    }
+
+    @discardableResult
     func createBeside<E: DocumentEntity>(_ value: E, original id: String) -> Task<LibraryBatch, any Error> {
         let kind = E.documentKind
         return client.create(value, area: LibraryHome.area(for: kind) == nil ? nil : area(kind, id))
@@ -705,9 +788,29 @@ final class AppModel {
     }
 
     func browserEntries(in section: LibrarySection) -> [LibraryIndex.Entry] {
+        let key = BrowserEntriesCacheKey(
+            section: section,
+            generation: listedSnapshot.generation,
+            listVersion: listVersion,
+            sort: librarySorts[section]?.rawValue ?? LibrarySort.name.rawValue,
+            viewedFolder: viewedLibraryFolder,
+            upcomingOnly: upcomingOnly,
+            upcomingIds: upcomingIds
+        )
+        if let cached = browserEntriesCache, cached.key == key {
+            return cached.entries
+        }
         let all = (librarySorts[section] ?? .name).ordered(
             Self.inSectionOrder(withoutStems(listedSnapshot.entries(of: section.kind), section), section), addedAt: mediaAddedAt)
-        return !isFiltered(section) ? all : all.filter { showFiltersAdmit(id: $0.id, kind: $0.kind) }
+        var entries = !isFiltered(section) ? all : all.filter { showFiltersAdmit(id: $0.id, kind: $0.kind) }
+        if section == .media || section == .background {
+            entries = entries.filter { entry in
+                let isBackground = media(entry.id)?.classification == .background
+                return section == .background ? isBackground : !isBackground
+            }
+        }
+        browserEntriesCache = (key, entries)
+        return entries
     }
 
     func mediaAddedAt(_ id: String) -> Date? {
@@ -765,7 +868,7 @@ final class AppModel {
     }
 
     static let folderableSections: [LibrarySection] = [
-        .presentations, .overlays, .media, .audio, .confidence,
+        .presentations, .overlays, .media, .audio, .songs, .confidence,
     ]
 
     func folders(in section: LibrarySection) -> [String] {
@@ -809,6 +912,24 @@ final class AppModel {
 
     func moveToFolder(_ entry: LibraryIndex.Entry, folder: String?) {
         file(entry, folder: folder, area: area(entry.kind, entry.id))
+    }
+
+    func moveToFolder(
+        _ entries: [LibraryIndex.Entry], folder: String?
+    ) -> Task<Void, any Error> {
+        Task { @MainActor in
+            for start in stride(from: 0, to: entries.count, by: LibraryClient.refileChunkSize) {
+                let end = min(start + LibraryClient.refileChunkSize, entries.count)
+                let refiles = entries[start..<end].compactMap { entry in
+                    refile(entry, folder: folder, area: area(entry.kind, entry.id))
+                }
+                guard !refiles.isEmpty else { continue }
+                let result = try await file(refiles).value
+                if let refusal = result.refused.first {
+                    throw refusal.value
+                }
+            }
+        }
     }
 
     func file(_ entry: LibraryIndex.Entry, folder: String?, area: LibraryArea) {
@@ -961,6 +1082,8 @@ final class AppModel {
         switch section {
         case .presentations:
             return createPresentation(named: "Untitled Presentation")
+        case .songs:
+            return createSong(SongLyrics(name: "Untitled Song", parts: []))
         case .themes:
             createInDrive(Theme(
                 id: id, name: "Untitled Theme", fontFamily: "Helvetica Neue",
@@ -983,7 +1106,7 @@ final class AppModel {
                 serviceDate: Self.isoDate(.now), items: []
             ))
             return id
-        case .media, .audio:
+        case .media, .background, .audio:
             return nil
         }
     }
@@ -1038,10 +1161,97 @@ final class AppModel {
     }
 
     func presentation(_ id: String) -> Presentation? {
+        if indexEntry(id)?.kind == .song {
+            guard let lyrics = song(id) else { return nil }
+            return lyrics.presentation(
+                linesPerSlide: songLineCount(id),
+                themeId: lyricsThemeID,
+                themeSlideName: lyricsThemeSlideName
+            )
+        }
         if !id.isEmpty, decks.currentValue(id) == nil {
             requestWarm(id)
         }
         return decks.value(id)
+    }
+
+    private var lyricsThemeID: String { slideBuilding.lyricsImportThemeId ?? "" }
+    private var lyricsThemeSlideName: String { slideBuilding.lyricsDesign }
+
+    private(set) var songLineCounts: [String: Int] = [:]
+
+    func songLineCount(_ id: String) -> Int { songLineCounts[id] ?? 2 }
+
+    func setSongLineCount(_ count: Int, id: String) -> Presentation? {
+        songLineCounts[id] = min(max(count, 1), 8)
+        return song(id)?.presentation(
+            linesPerSlide: songLineCount(id),
+            themeId: lyricsThemeID,
+            themeSlideName: lyricsThemeSlideName
+        )
+    }
+
+    func songID(for projection: Presentation) -> String? {
+        let prefix = "song-lyrics:"
+        guard projection.id.hasPrefix(prefix) else { return nil }
+        return String(projection.id.dropFirst(prefix.count))
+    }
+
+    func song(_ id: String) -> SongLyrics? {
+        if let value = songValues[id] { return value }
+        requestWarmSong(id)
+        return nil
+    }
+
+    private(set) var songValues: [String: SongLyrics] = [:]
+    private(set) var songLoadErrors: [String: String] = [:]
+
+    func loadSong(_ id: String) async -> SongLyrics? {
+        if let value = songValues[id] { return value }
+        do {
+            let value = try await client.loadValue(SongLyrics.self, id: id)
+            songValues[id] = value
+            songLoadErrors[id] = nil
+            return value
+        } catch {
+            songLoadErrors[id] = error.localizedDescription
+            DiagnosticsStore.shared.note(
+                "song.load.failed", detail: "\(id): \(error.localizedDescription)"
+            )
+            return nil
+        }
+    }
+
+    @ObservationIgnored private var warmSongRequested: [String] = []
+
+    private func requestWarmSong(_ id: String) {
+        guard !id.isEmpty, !warmSongRequested.contains(id) else { return }
+        warmSongRequested.append(id)
+        warmSongRequested.removeFirst(max(0, warmSongRequested.count - LibraryCacheLimits.standard.warmPerKind))
+        Task { @MainActor [weak self] in
+            _ = await self?.loadSong(id)
+            self?.warmSongRequested.removeAll { $0 == id }
+        }
+    }
+
+    @discardableResult
+    func createSong(_ song: SongLyrics) -> String {
+        createInDrive(song)
+        return song.id
+    }
+
+    @discardableResult
+    func createOpenLyricsSong(
+        _ source: OpenLyricsImporter.Song, includeTransliteration: Bool = true
+    ) -> String {
+        createSong(SongLyrics.openLyrics(source, includeTransliteration: includeTransliteration))
+    }
+
+    @discardableResult
+    func updateSong(
+        _ id: String, _ mutate: @escaping @Sendable (inout SongLyrics) -> Void
+    ) -> Task<LibraryBatch, any Error> {
+        modify(SongLyrics.self, id: id, mutate)
     }
 
     @ObservationIgnored private var warmRequested: [String] = []
@@ -1072,7 +1282,16 @@ final class AppModel {
     }
 
     func presentationsFilled(_ ids: [String]) async -> [String: Presentation] {
-        await decks.ready(ids)
+        let songIDs = ids.filter { indexEntry($0)?.kind == .song }
+        let deckIDs = ids.filter { indexEntry($0)?.kind != .song }
+        for id in songIDs {
+            _ = await loadSong(id)
+        }
+        var result = await decks.ready(deckIDs)
+        for id in songIDs {
+            if let projection = presentation(id) { result[id] = projection }
+        }
+        return result
     }
 
     func heldPresentation(_ id: String) -> Presentation? {
@@ -1106,8 +1325,39 @@ final class AppModel {
         id.isEmpty ? nil : resident.themes.value(id)
     }
 
+    func themeID(for presentation: Presentation) -> String {
+        if !presentation.themeId.isEmpty || presentation.presentationKind != .song {
+            return presentation.themeId
+        }
+        return slideBuilding.lyricsImportThemeId ?? ""
+    }
+
+    func theme(for presentation: Presentation) -> Theme? {
+        theme(themeID(for: presentation))
+    }
+
+    func themeID(for slide: Slide, in presentation: Presentation) -> String {
+        if slide.unthemed == true {
+            return ""
+        }
+        let slideThemeID = presentation.themeId(for: slide)
+        if !slideThemeID.isEmpty {
+            return slideThemeID
+        }
+        guard presentation.presentationKind == .song else { return slideThemeID }
+        return slideBuilding.lyricsImportThemeId ?? ""
+    }
+
     func theme(for slide: Slide, in presentation: Presentation) -> Theme? {
-        theme(presentation.themeId(for: slide))
+        theme(themeID(for: slide, in: presentation))
+    }
+
+    func globalBackgroundId() -> String {
+        slideBuilding.globalBackgroundId ?? ""
+    }
+
+    func setGlobalBackground(mediaID: String?) {
+        updateSlideBuilding { $0.setGlobalBackground(mediaID) }
     }
 
     func themesFilled(_ ids: [String]) async {
@@ -1143,7 +1393,10 @@ final class AppModel {
     func arrangedSlides(_ presentation: Presentation, arrangementId: String?) -> [Slide] {
 
         let once = SlideSceneBuilder.emptyRepeatsOnce
-        let key = "\(presentation.id)|\(kindVersions[.presentation])|\(arrangementId ?? "")|\(once)"
+        let songRevision = songID(for: presentation).map {
+            "\(kindVersions[.song])|\(songLineCount($0))"
+        } ?? ""
+        let key = "\(presentation.id)|\(kindVersions[.presentation])|\(songRevision)|\(arrangementId ?? "")|\(once)"
         if let hit = arrangedCache[key] { return hit }
         let slides = SlideSceneBuilder.arrangedSlides(
             for: presentation, arrangementId: arrangementId, emptyRepeatsOnce: once
@@ -1843,6 +2096,7 @@ final class AppModel {
         guard !trimmed.isEmpty else { return }
         switch entry.kind {
         case .presentation: modify(Presentation.self, id: entry.id) { $0.name = trimmed }
+        case .song: modify(SongLyrics.self, id: entry.id) { $0.name = trimmed }
         case .service: modify(Service.self, id: entry.id) { $0.name = trimmed }
         case .theme: modify(Theme.self, id: entry.id) { $0.name = trimmed }
         case .media: modify(MediaItem.self, id: entry.id) { $0.name = trimmed }
@@ -1943,6 +2197,12 @@ final class AppModel {
     }
 
     func isMediaFileMissing(_ item: MediaItem) -> Bool {
+        _ = blobsVersion
+        guard let blobs else { return false }
+        return blobs.url(forHash: item.fileHash) == nil
+    }
+
+    func isAudioFileMissing(_ item: AudioItem) -> Bool {
         _ = blobsVersion
         guard let blobs else { return false }
         return blobs.url(forHash: item.fileHash) == nil
@@ -2160,6 +2420,7 @@ final class AppModel {
             $0.id = newID
             $0.name += " Copy"
         }
+        case .song: copy(SongLyrics.self) { $0.id = newID; $0.name += " Copy" }
         case .service: copy(Service.self) { $0.id = newID; $0.name += " Copy" }
         case .theme: copy(Theme.self) { $0.id = newID; $0.name += " Copy" }
         case .media: copy(MediaItem.self) {
@@ -3214,6 +3475,10 @@ final class AppModel {
         case .presentation:
             decks.reseed(id: id, value: value as? Presentation)
             rekeyArrangedCache(dropping: id)
+        case .song:
+            songValues[id] = value as? SongLyrics
+            songLoadErrors[id] = nil
+            resident.reseed(kind: kind, id: id, value: value)
         default:
 
             resident.reseed(kind: kind, id: id, value: value)
@@ -3372,6 +3637,8 @@ final class AppModel {
     func importLyrics(
         text: String, fallbackTitle: String? = nil, linesPerSlide: Int = 2,
         themeId: String = "", themeSlideName: String = "Lyrics", lyricLines: Set<String> = [],
+        secondaryLyrics: String? = nil, transliteration: String? = nil,
+        ccli: CCLIInfo? = nil, musicKey: String? = nil,
         origin: PresentationOrigin = PresentationOrigin(.pastedLyrics)
     ) -> String? {
         var presentation = LyricTextImporter.makePresentation(
@@ -3380,115 +3647,16 @@ final class AppModel {
             themeId: themeId,
             themeSlideName: themeSlideName,
             linesPerSlide: linesPerSlide,
-            lyricLines: lyricLines
+            lyricLines: lyricLines,
+            secondaryLyrics: secondaryLyrics,
+            transliteration: transliteration
         )
+        presentation.ccli = ccli ?? presentation.ccli
+        presentation.musicKey = musicKey ?? presentation.musicKey
         presentation.origin = origin
         createInDrive(presentation)
         lastImportSummary = "Imported \"\(presentation.name)\" (\(presentation.slides.count) slides)"
         return presentation.id
-    }
-
-    @discardableResult
-    func importProPresenter(
-        urls: [URL], onDocument: ((URL) -> Void)? = nil
-    ) async -> [ProPresenterImporter.DocumentSummary] {
-        isImporting = true
-        defer { isImporting = false }
-        let placement = newPlacement
-        guard let importer = try? ProPresenterImporter(client: client, placement: placement) else { return [] }
-        let summaries = await importer.importItems(
-            at: urls, folder: placement.folder(for: .presentation), onDocument: onDocument)
-        let imported = summaries.filter { $0.presentationID != nil && $0.skipped == nil }
-        let mediaCount = summaries.reduce(0) { $0 + $1.mediaImported }
-        var summary = "Imported \(imported.count) of \(summaries.count) ProPresenter documents"
-        if mediaCount > 0 { summary += " — \(mediaCount) media files" }
-
-        let kept = summaries.filter { $0.skipped == .edited }
-        if !kept.isEmpty {
-            summary += " — kept \(kept.count) edited here: \(kept.map(\.name).joined(separator: ", "))"
-        }
-        let warned = summaries.filter { !$0.warnings.isEmpty }.count
-        if warned > 0 { summary += " — \(warned) with warnings" }
-        lastImportSummary = summary
-        await applyImportedGroupHotKeys(from: summaries)
-        noteLibraryWideMutation()
-        noteImportReplacedDocuments()
-        return summaries
-    }
-
-    private func applyImportedGroupHotKeys(
-        from summaries: [ProPresenterImporter.DocumentSummary]
-    ) async {
-        var merged: [String: String] = [:]
-        for summary in summaries {
-            merged.merge(summary.groupHotKeys) { first, _ in first }
-        }
-        await applyImportedGroupHotKeys(merged, policy: .updateUnedited)
-    }
-
-    func applyImportedGroupHotKeys(
-        _ imported: [String: String], policy: ImportConflictPolicy
-    ) async {
-        if !imported.isEmpty {
-            await client.settled()
-            await resident.ready([.groupPalette])
-            let ledger = (try? await client.loadValue(ImportLedger.self, id: ImportLedger.wellKnownID))
-                ?? ImportLedger(id: ImportLedger.wellKnownID, entries: [])
-            var palette = groupPalette
-            let stamps = palette.applyImportedHotKeys(imported, policy: policy, ledger: ledger)
-            updateGroupPalette { _ = $0.applyImportedHotKeys(imported, policy: policy, ledger: ledger) }
-            if !stamps.isEmpty {
-
-                let receipts = stamps.map { (docId: $0.docId, hash: $0.hash) }
-                client.modify(
-                    ImportLedger.self, id: ImportLedger.wellKnownID,
-                    orMake: { ImportLedger(id: ImportLedger.wellKnownID, entries: []) }
-                ) { value in
-                    for stamp in receipts { value.stamp(stamp.docId, stamp.hash) }
-                }
-            }
-        }
-    }
-
-    func proPresenterImportIDs() async -> Set<String> {
-        let ledger = try? await client.loadValue(ImportLedger.self, id: ImportLedger.wellKnownID)
-        return Set((ledger?.entries ?? []).map(\.docId))
-    }
-
-    func importProPresenterThemes(urls: [URL]) async -> [ProThemeImportSummary] {
-        isImporting = true
-        defer { isImporting = false }
-        guard let importer = try? ProPresenterImporter(client: client, placement: newPlacement) else { return [] }
-        var summaries: [ProThemeImportSummary] = []
-        for url in urls {
-            summaries.append(await importer.importTheme(at: url))
-        }
-        let names = summaries.filter { $0.themeID != nil && $0.skipped == nil }.map(\.name)
-        if !names.isEmpty {
-            lastImportSummary = "Imported theme\(names.count == 1 ? "" : "s") \(names.joined(separator: ", "))"
-        }
-        noteLibraryWideMutation()
-        noteImportReplacedDocuments()
-        return summaries
-    }
-
-    func importProPresenterPlaylists(urls: [URL]) async -> [ProPresenterImporter.PlaylistBundleSummary] {
-        isImporting = true
-        defer { isImporting = false }
-        let placement = newPlacement
-        guard let importer = try? ProPresenterImporter(client: client, placement: placement) else { return [] }
-        var summaries: [ProPresenterImporter.PlaylistBundleSummary] = []
-        for url in urls {
-            summaries.append(await importer.importPlaylistBundle(at: url, folder: placement.folder(for: .presentation)))
-        }
-        let services = summaries.flatMap(\.services)
-        if !services.isEmpty {
-            lastImportSummary = "Imported \(services.count) playlist\(services.count == 1 ? "" : "s") → Services: \(services.joined(separator: ", "))"
-        }
-        await applyImportedGroupHotKeys(from: summaries.flatMap(\.documents))
-        noteLibraryWideMutation()
-        noteImportReplacedDocuments()
-        return summaries
     }
 
     @discardableResult
@@ -3566,6 +3734,8 @@ extension AppModel: LibraryReadSide {
     func currentValue(_ kind: DocumentKind, id: String) -> (any DocumentEntity)? {
         if kind == .presentation {
             decks.currentValue(id)
+        } else if kind == .song {
+            songValues[id] ?? resident.songs.currentValue(id)
         } else {
             resident.value(kind: kind, id: id)
         }

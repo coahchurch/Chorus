@@ -27,7 +27,7 @@ import Testing
     defer { try? FileManager.default.removeItem(at: root) }
 
     try library.restoreWelcomeDeck(serviceDate: "2026-09-17")
-    #expect(try library.index.entries(of: .presentation).map(\.name) == ["Welcome to MxU Slides"])
+    #expect(try library.index.entries(of: .presentation).map(\.name) == ["Welcome to Chorus"])
     #expect(try library.index.entries(of: .service).map(\.name) == ["Getting Started"])
 
     let document = try library.open(Presentation.self, id: WelcomeDeck.presentationID)

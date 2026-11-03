@@ -1,6 +1,5 @@
 import AppKit
 import PresenterCore
-import ProImport
 import SwiftUI
 
 @MainActor
@@ -15,8 +14,6 @@ final class ImportActivityModel {
     var summaryLines: [String] = []
     var warnings: [String] = []
 
-    var optionsRequest: WorkspaceOptionsRequest?
-
     var backupOptionsRequest: BackupOptionsRequest?
 
     var finishedHeadline = "Import finished"
@@ -26,27 +23,12 @@ final class ImportActivityModel {
         self.title = title
     }
 
-    func requestOptions(
-        scan: WorkspaceScan, options: WorkspaceImportOptions,
-        respond: @escaping (WorkspaceImportOptions?) -> Void
-    ) {
-        optionsRequest = WorkspaceOptionsRequest(
-            scan: scan, options: options, respond: respond)
-    }
-
     func requestBackupOptions(
         scan: BackupScan, options: BackupImportOptions,
         respond: @escaping (BackupImportOptions?) -> Void
     ) {
         backupOptionsRequest = BackupOptionsRequest(
             scan: scan, options: options, respond: respond)
-    }
-
-    func apply(_ progress: ProImportProgress) {
-        phase = progress.phase
-        detail = progress.detail
-        completed = progress.completed
-        total = progress.total
     }
 
     func apply(_ progress: BackupProgress) {
@@ -88,12 +70,6 @@ enum ImportActivityWindow {
     }
 }
 
-struct WorkspaceOptionsRequest {
-    let scan: WorkspaceScan
-    let options: WorkspaceImportOptions
-    let respond: (WorkspaceImportOptions?) -> Void
-}
-
 struct BackupOptionsRequest {
     let scan: BackupScan
     let options: BackupImportOptions
@@ -107,9 +83,7 @@ struct ImportActivityView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let request = model.optionsRequest {
-                WorkspaceOptionsView(request: request) { model.optionsRequest = nil }
-            } else if let request = model.backupOptionsRequest {
+            if let request = model.backupOptionsRequest {
                 BackupOptionsView(request: request) { model.backupOptionsRequest = nil }
             } else if model.finished {
                 results
@@ -118,7 +92,7 @@ struct ImportActivityView: View {
             }
         }
         .padding(16)
-        .frame(width: model.optionsRequest == nil && model.backupOptionsRequest == nil ? 440 : 560)
+        .frame(width: model.backupOptionsRequest == nil ? 440 : 560)
     }
 
     @ViewBuilder
@@ -187,90 +161,6 @@ struct ImportActivityView: View {
     }
 }
 
-private struct WorkspaceOptionsView: View {
-    let request: WorkspaceOptionsRequest
-    let dismissStep: () -> Void
-    @State private var options: WorkspaceImportOptions
-
-    init(request: WorkspaceOptionsRequest, dismissStep: @escaping () -> Void) {
-        self.request = request
-        self.dismissStep = dismissStep
-        _options = State(initialValue: request.options)
-    }
-
-    var body: some View {
-        let scan = request.scan
-        Text("Choose what to import")
-            .font(.headline)
-        HStack(alignment: .top, spacing: 28) {
-            VStack(alignment: .leading, spacing: 6) {
-                ImportOptionsColumnHeader(title: "Content")
-                row("Presentations", scan.presentations, $options.presentations)
-                if options.presentations, scan.presentations > 0 {
-                    row("Include referenced media files", nil, $options.presentationMedia)
-                        .padding(.leading, 18)
-                }
-                row("Media bin → Folders", scan.media, $options.media)
-                row("Themes", scan.themes, $options.themes)
-                row("Props → Overlays", scan.props, $options.overlays)
-                row("Messages → Alerts", scan.messages, $options.alerts)
-                row("Stage layouts → Confidence", scan.stageLayouts, $options.confidenceLayouts)
-                row("Macros → Action Combos", scan.macros, $options.combos)
-                row("Playlists → Services", scan.playlists, $options.playlists)
-                row("Calendar → Scheduler", scan.calendarEvents, $options.schedules)
-                row("Group hot keys", scan.groupHotKeys, $options.groupHotKeys)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(alignment: .leading, spacing: 6) {
-                ImportOptionsColumnHeader(title: "Setup")
-                row("Screens & roles", scan.screens, $options.screens)
-                if options.screens, scan.screens > 0 {
-                    Group {
-                        row("Corrections & blends", nil, $options.screenCorrections)
-                        row("Multi-projector slices", nil, $options.screenSlices)
-                        row("Masks", nil, $options.screenMasks)
-                    }
-                    .padding(.leading, 18)
-                }
-                row("Looks → Output Presets", scan.looks, $options.looks)
-                row("Stage layout assignments", nil, $options.stageAssignments)
-                row("Timers", scan.timers, $options.timers)
-                row("Video inputs", scan.videoInputs, $options.videoInputs)
-                row("MIDI devices", scan.midiDevices, $options.midiDevices)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        Divider()
-        Picker("If something here already exists:", selection: $options.policy) {
-            ForEach(ImportConflictPolicy.allCases, id: \.self) { policy in
-                Text(policy.displayName).tag(policy)
-            }
-        }
-        .pickerStyle(.radioGroup)
-        Text("“Update unedited” replaces only documents untouched since their last import — anything you've changed in MxU Slides is kept and listed in the report. Nothing here ever changes what's live on your outputs.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-        HStack {
-            Spacer()
-            Button("Cancel") {
-                dismissStep()
-                request.respond(nil)
-            }
-            .keyboardShortcut(.cancelAction)
-            Button("Import") {
-                dismissStep()
-                request.respond(options)
-            }
-            .keyboardShortcut(.defaultAction)
-        }
-    }
-
-    private func row(_ title: String, _ count: Int?, _ binding: Binding<Bool>) -> some View {
-        ImportOptionRow(title: title, count: count, isOn: binding)
-    }
-}
-
 private struct BackupOptionsView: View {
     let request: BackupOptionsRequest
     let dismissStep: () -> Void
@@ -299,7 +189,7 @@ private struct BackupOptionsView: View {
             }
         }
         .pickerStyle(.radioGroup)
-        Text("“Merge” never loses an edit, so it can't undo one either — to go back to the backup's version of something, choose “Replace”. App settings apply the next time MxU Slides opens. Nothing here ever changes what's live on your outputs.")
+        Text("“Merge” never loses an edit, so it can't undo one either — to go back to the backup's version of something, choose “Replace”. App settings apply the next time Chorus opens. Nothing here ever changes what's live on your outputs.")
             .font(.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)

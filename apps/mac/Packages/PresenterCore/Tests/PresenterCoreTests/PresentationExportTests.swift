@@ -13,7 +13,7 @@ struct PresentationExportTests {
 
     @Test func fileNamesFollowTheFormat() {
         let deck = Presentation(id: "d", name: "Sunday: 9/14", presentationKind: .deck, themeId: "", slides: [])
-        #expect(PresentationExport.fileName(for: deck, format: .slidesFile) == "Sunday- 9-14.mxuslides")
+        #expect(PresentationExport.fileName(for: deck, format: .slidesFile) == "Sunday- 9-14.chorus")
         #expect(PresentationExport.fileName(for: deck, format: .pdf) == "Sunday- 9-14.pdf")
         #expect(PresentationExport.fileName(for: deck, format: .images) == "Sunday- 9-14")
         #expect(PresentationExport.fileName(for: deck, format: .chordPro) == "Sunday- 9-14.cho")
@@ -23,7 +23,8 @@ struct PresentationExportTests {
         let deck = Presentation(id: "d", name: "Amazing Grace", presentationKind: .song, themeId: "", slides: [])
         #expect(PresentationExport.fileName(for: deck, format: .pdf, typed: nil) == "Amazing Grace.pdf")
         #expect(PresentationExport.fileName(for: deck, format: .pdf, typed: "") == "Amazing Grace.pdf")
-        #expect(PresentationExport.fileName(for: deck, format: .slidesFile, typed: "Sunday.pdf") == "Sunday.mxuslides")
+        #expect(PresentationExport.fileName(for: deck, format: .slidesFile, typed: "Sunday.pdf") == "Sunday.chorus")
+        #expect(PresentationExport.fileName(for: deck, format: .slidesFile, typed: "Sunday.mxuslides") == "Sunday.chorus")
         #expect(PresentationExport.fileName(for: deck, format: .images, typed: "Sunday.cho") == "Sunday")
         #expect(PresentationExport.fileName(for: deck, format: .plainText, typed: "Sunday") == "Sunday.txt")
     }

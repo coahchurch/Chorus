@@ -124,6 +124,8 @@ public struct ShowState: Sendable, Equatable {
 
     public private(set) var lastSlide: LiveSlide?
 
+    public private(set) var globalBackground: CueMedia?
+
     public private(set) var liveMedia: [LayerKind: CueMedia] = [:]
 
     public private(set) var liveOverlays: [Overlay] = []
@@ -157,6 +159,10 @@ public struct ShowState: Sendable, Equatable {
 
     public init() {}
 
+    public mutating func setGlobalBackground(_ background: CueMedia?) {
+        globalBackground = background
+    }
+
     public mutating func fire(
         slide: Slide,
         presentation: Presentation? = nil,
@@ -188,7 +194,8 @@ public struct ShowState: Sendable, Equatable {
         slideArrivedSettled = arrivesSettled
         slideDismissAt = nil
         let background = SlideSceneBuilder.effectiveBackground(
-            slide: slide, presentation: presentation, arrangementId: arrangementId
+            slide: slide, presentation: presentation, arrangementId: arrangementId,
+            globalBackground: globalBackground
         )
         let backgroundLayer = background.map { SlideSceneBuilder.layerKind($0.layer) }
 
@@ -662,7 +669,10 @@ public struct ShowState: Sendable, Equatable {
                 RenderItem(
                     id: "live-media-\(layer.rawValue)",
                     frame: CGRect(origin: .zero, size: canvasSize),
-                    content: .media(id: media.mediaId, scaleMode: .fill)
+                    content: .media(
+                        id: media.mediaId,
+                        scaleMode: layer == .loopingVideos ? .fill : .fit
+                    )
                 ),
                 to: layer
             )

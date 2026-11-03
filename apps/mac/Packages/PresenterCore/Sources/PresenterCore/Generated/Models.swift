@@ -1018,8 +1018,9 @@ public struct Presentation: Codable, Sendable, Equatable, Identifiable {
     public var origin: PresentationOrigin?
     public var timelines: [PresentationTimeline]?
     public var songMap: SongMap?
+    public var tags: [String]?
 
-    public init(id: String, name: String, presentationKind: PresentationKind, themeId: String, folder: String? = nil, folderId: String? = nil, slides: [Slide], canvasWidth: Int? = nil, canvasHeight: Int? = nil, background: CueMedia? = nil, backgroundFill: ObjectFill? = nil, sections: [PresentationSection]? = nil, arrangements: [Arrangement]? = nil, defaultArrangementId: String? = nil, reflowSource: String? = nil, ccli: CCLIInfo? = nil, chordProSource: String? = nil, musicKey: String? = nil, autoAdvance: AutoAdvance? = nil, transition: Transition? = nil, displayKey: String? = nil, origin: PresentationOrigin? = nil, timelines: [PresentationTimeline]? = nil, songMap: SongMap? = nil) {
+    public init(id: String, name: String, presentationKind: PresentationKind, themeId: String, folder: String? = nil, folderId: String? = nil, slides: [Slide], canvasWidth: Int? = nil, canvasHeight: Int? = nil, background: CueMedia? = nil, backgroundFill: ObjectFill? = nil, sections: [PresentationSection]? = nil, arrangements: [Arrangement]? = nil, defaultArrangementId: String? = nil, reflowSource: String? = nil, ccli: CCLIInfo? = nil, chordProSource: String? = nil, musicKey: String? = nil, autoAdvance: AutoAdvance? = nil, transition: Transition? = nil, displayKey: String? = nil, origin: PresentationOrigin? = nil, timelines: [PresentationTimeline]? = nil, songMap: SongMap? = nil, tags: [String]? = nil) {
         self.id = id
         self.name = name
         self.presentationKind = presentationKind
@@ -1044,6 +1045,7 @@ public struct Presentation: Codable, Sendable, Equatable, Identifiable {
         self.origin = origin
         self.timelines = timelines
         self.songMap = songMap
+        self.tags = tags
     }
 }
 
@@ -1217,6 +1219,7 @@ public struct Playlist: Codable, Sendable, Equatable, Identifiable {
 
 public enum ServiceItemKind: String, Codable, Sendable, CaseIterable, Equatable {
     case presentation
+    case song
     case media
     case audio
     case playlist
@@ -2600,13 +2603,15 @@ public struct SlideBuildingSettings: Codable, Sendable, Equatable, Identifiable 
     public var messageNotesThemeId: String?
     public var lyricsImportThemeId: String?
     public var lyricsImportDesign: String?
+    public var globalBackgroundId: String?
 
-    public init(id: String, designMap: String? = nil, messageNotesThemeId: String? = nil, lyricsImportThemeId: String? = nil, lyricsImportDesign: String? = nil) {
+    public init(id: String, designMap: String? = nil, messageNotesThemeId: String? = nil, lyricsImportThemeId: String? = nil, lyricsImportDesign: String? = nil, globalBackgroundId: String? = nil) {
         self.id = id
         self.designMap = designMap
         self.messageNotesThemeId = messageNotesThemeId
         self.lyricsImportThemeId = lyricsImportThemeId
         self.lyricsImportDesign = lyricsImportDesign
+        self.globalBackgroundId = globalBackgroundId
     }
 }
 

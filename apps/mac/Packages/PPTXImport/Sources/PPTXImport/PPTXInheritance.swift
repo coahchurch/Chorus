@@ -42,6 +42,10 @@ final class PPTXInheritance {
     private let majorLatinFamily: String?
     private let minorLatinFamily: String?
 
+    // Simple memoization caches to avoid repeated XML traversals
+    private var cachedThemeFillStyles: [Int: XMLElement] = [:]
+    private var cachedDecorationSpTrees: [String: XMLElement] = [:]
+
     init(slidePart: String, presentationPart: String?, package: PPTXPackage) {
         self.package = package
 
@@ -214,6 +218,7 @@ final class PPTXInheritance {
     }
 
     func themeFillStyle(index: Int) -> XMLElement? {
+        if let cached = cachedThemeFillStyles[index] { return cached }
         let fmtScheme = themeElements?.first(local: "fmtScheme")
         let list = index >= 1001
             ? fmtScheme?.first(local: "bgFillStyleLst")
@@ -221,11 +226,16 @@ final class PPTXInheritance {
         let fills = (list?.children ?? []).compactMap { $0 as? XMLElement }
         let position = index >= 1001 ? index - 1001 : index - 1
         guard position >= 0, position < fills.count else { return nil }
-        return fills[position]
+        let result = fills[position]
+        cachedThemeFillStyles[index] = result
+        return result
     }
 
     func decorationSpTree(ofPart part: String?) -> XMLElement? {
         guard let part else { return nil }
-        return (try? package.document(at: part).rootElement())?.descendant(["cSld", "spTree"])
+        if let cached = cachedDecorationSpTrees[part] { return cached }
+        let tree = (try? package.document(at: part).rootElement())?.descendant(["cSld", "spTree"])
+        if let tree { cachedDecorationSpTrees[part] = tree }
+        return tree
     }
 }

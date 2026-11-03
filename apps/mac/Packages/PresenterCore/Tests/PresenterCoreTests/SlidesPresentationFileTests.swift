@@ -55,7 +55,7 @@ struct SlidesPresentationFileTests {
             id: "a1", name: "Outro", fileHash: audioHash, fileName: "Outro.wav", tags: [], favorite: false)).value
         _ = try await source.create(deck(mediaID: "m1", audioID: "a1")).value
         let bundle = try await SlidesPresentationFile.bundle(id: "deck", reader: source.reader())
-        let url = temporary("\(UUID()).mxuslides")
+        let url = temporary("\(UUID()).chorus")
         let summary = try SlidesPresentationFile.write(
             bundle, blobs: BlobStore(libraryRoot: source.rootURL), fonts: [], to: url)
         #expect(summary.missingFiles.isEmpty)
@@ -145,7 +145,7 @@ struct SlidesPresentationFileTests {
 
     @Test func readRefusesOtherFilesAndNewerFormats() throws {
         let scratch = temporary()
-        let notZip = temporary("\(UUID()).mxuslides")
+        let notZip = temporary("\(UUID()).chorus")
         defer { for url in [scratch, notZip] { try? FileManager.default.removeItem(at: url) } }
         try Data("hello".utf8).write(to: notZip)
         #expect(throws: SlidesPresentationFile.FileError.notAPresentation(notZip.lastPathComponent)) {
@@ -156,7 +156,7 @@ struct SlidesPresentationFileTests {
         try FileManager.default.createDirectory(at: staged, withIntermediateDirectories: true)
         try Data(#"{"formatVersion":99,"createdAt":"2026-10-07T00:00:00Z","name":"x","slideCount":0}"#.utf8)
             .write(to: staged.appendingPathComponent("manifest.json"))
-        let newer = scratch.appendingPathComponent("newer.mxuslides")
+        let newer = scratch.appendingPathComponent("newer.chorus")
         let ditto = Process()
         ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
         ditto.arguments = ["-c", "-k", staged.path, newer.path]

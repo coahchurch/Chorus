@@ -68,6 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @main
 struct MxUSlidesApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @AppStorage("app.language") private var languageRaw = AppLanguage.english.rawValue
     @State private var renderContext: RenderContext?
     @State private var appModel: AppModel?
 
@@ -90,6 +91,10 @@ struct MxUSlidesApp: App {
     @State private var keyIn: KeyInController?
 
     @State private var serviceTracking: ServiceTimingController?
+
+    private var appLocale: Locale {
+        AppLanguage(rawValue: languageRaw)?.locale ?? AppLanguage.english.locale
+    }
 
     init() {
 
@@ -176,11 +181,12 @@ struct MxUSlidesApp: App {
 
     var body: some Scene {
 
-        WindowGroup("MxU Slides", id: "main") {
+        WindowGroup("Chorus", id: "main") {
             if let appModel, appModel.libraryOpenError != nil {
 
                 Text("Could not open the library.")
                     .padding(40)
+                    .environment(\.locale, appLocale)
             } else if let appModel, !appModel.isLibraryReady {
 
                 VStack(spacing: 10) {
@@ -188,6 +194,7 @@ struct MxUSlidesApp: App {
                     Text("Opening the library…").font(.callout).foregroundStyle(.secondary)
                 }
                 .frame(minWidth: 1280, minHeight: 640)
+                .environment(\.locale, appLocale)
             } else if let appModel {
 
                 ShellView(
@@ -198,6 +205,7 @@ struct MxUSlidesApp: App {
                 .environment(\.actionRouter, actionRouter)
                 .environment(\.scheduler, scheduler)
                 .environment(\.confidenceMonitor, confidenceMonitor)
+                .environment(\.locale, appLocale)
 
                 .overlay(alignment: .bottom) {
                     GoToSlideHUD(keyIn: keyIn).padding(.bottom, 48)
@@ -206,8 +214,7 @@ struct MxUSlidesApp: App {
 
                 .sheet(isPresented: $showWelcome) {
                     OnboardingView(
-                        model: appModel, render: renderContext,
-                        importWorkspace: welcomeImportAction
+                        model: appModel, render: renderContext
                     ) { showWelcome = false }
                 }
                 .onChange(of: showWelcome) { appModel.welcomeShowing = showWelcome }
@@ -231,6 +238,7 @@ struct MxUSlidesApp: App {
             } else {
                 Text("Could not open the library.")
                     .padding(40)
+                    .environment(\.locale, appLocale)
             }
         }
         .windowStyle(.hiddenTitleBar)
@@ -247,10 +255,12 @@ struct MxUSlidesApp: App {
             if presentLayout.runOnly {
                 RunOnlyLockedPlaceholder(surface: "Settings")
                     .frame(width: 420, height: 260)
+                    .environment(\.locale, appLocale)
             } else {
                 AppSettingsView(
                     model: appModel, controls: controls, layout: presentLayout,
                     api: localAPI, outputPresets: outputPresets)
+                    .environment(\.locale, appLocale)
             }
         }
 
@@ -263,6 +273,7 @@ struct MxUSlidesApp: App {
                     controls: controls, presets: outputPresets, layout: presentLayout
                 )
                 .environment(\.confidenceMonitor, confidenceMonitor)
+                .environment(\.locale, appLocale)
             }
         }
         .defaultSize(width: 360, height: 460)
@@ -276,6 +287,7 @@ struct MxUSlidesApp: App {
                 .environment(\.confidenceMonitor, confidenceMonitor)
                 .environment(\.actionRouter, actionRouter)
                 .environment(\.scheduler, scheduler)
+                .environment(\.locale, appLocale)
             }
         }
         .defaultSize(width: 420, height: 520)
@@ -287,6 +299,7 @@ struct MxUSlidesApp: App {
             )
 
             .environment(\.confidenceMonitor, confidenceMonitor)
+            .environment(\.locale, appLocale)
         }
         .defaultSize(width: 640, height: 380)
 
@@ -294,9 +307,11 @@ struct MxUSlidesApp: App {
             if presentLayout.runOnly {
                 RunOnlyLockedPlaceholder(surface: "Screen Configuration")
                     .background(NonRestorableWindow())
+                    .environment(\.locale, appLocale)
             } else {
                 OutputsWindow(render: renderContext, presets: outputPresets)
                     .background(NonRestorableWindow())
+                    .environment(\.locale, appLocale)
             }
         }
         .defaultSize(width: 780, height: 540)
@@ -308,10 +323,12 @@ struct MxUSlidesApp: App {
             } else if let renderContext {
                 ContentView(render: renderContext, presets: outputPresets)
                     .background(NonRestorableWindow())
+                    .environment(\.locale, appLocale)
                     .task { await AutoSoak.runIfRequested(render: renderContext) }
             } else {
                 Text("Metal is not available on this machine.")
                     .padding(40)
+                    .environment(\.locale, appLocale)
             }
         }
         .commandsRemoved()
@@ -322,20 +339,6 @@ struct MxUSlidesApp: App {
     @State private var showWelcome = false
 
     @State private var showFeedback = false
-
-    private var welcomeImportAction: ((@escaping (ImportActivityModel?) -> Void) -> Void)? {
-        if let appModel, let renderContext, let controls {
-            { host in
-                WorkspaceImportRunner(
-                    model: appModel, render: renderContext, controls: controls,
-                    confidenceMonitor: confidenceMonitor, presets: outputPresets,
-                    inlineHost: host
-                ).present()
-            }
-        } else {
-            nil
-        }
-    }
 
     private func openEngineWindowIfSoaking() {
         if CommandLine.arguments.contains("--soak-minutes") {

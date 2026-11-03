@@ -3,6 +3,11 @@ import PresenterCore
 import SwiftUI
 import UniformTypeIdentifiers
 
+struct OpenLyricsImportResult: Sendable {
+    var ids: [String]
+    var failures: [String]
+}
+
 struct ServiceItemChooser: View {
     let model: AppModel
     let serviceID: String
@@ -15,8 +20,6 @@ struct ServiceItemChooser: View {
     @State private var filter: ServiceItemChooserLogic.KindFilter = .all
 
     @State private var queryHits: [LibraryIndex.Hit] = []
-
-    @State private var proPresenterIDs: Set<String> = []
 
     @State private var idleOrder: [String] = []
     @State private var choosingFiles = false
@@ -55,7 +58,6 @@ struct ServiceItemChooser: View {
             searchFocused = true
             idleOrder = ServiceItemChooserLogic.results(query: "", hits: [], idle: idleEntries, filter: .all).map(\.entry.id)
         }
-        .task { proPresenterIDs = await model.proPresenterImportIDs() }
         .task(id: query) {
             queryHits = await model.search(query)
         }
@@ -130,7 +132,7 @@ struct ServiceItemChooser: View {
         if hit.entry.kind == .presentation {
             LibraryPickerDeckRow(
                 appModel: model, render: render, entry: hit.entry,
-                proPresenterIDs: proPresenterIDs, snippet: hit.snippet, accessory: accessory
+                snippet: hit.snippet, accessory: accessory
             ) {
                 pick(hit.entry)
             }
@@ -180,7 +182,7 @@ struct ServiceItemChooser: View {
                 .foregroundStyle(.secondary)
             Text("Drop a file here, or choose one")
                 .font(.headline)
-            Text("Images and video, ProPresenter (.pro), PowerPoint (.pptx), MxU Slides (.mxuslides), lyrics or ChordPro text, chord chart PDFs")
+            Text("Images and video, PowerPoint (.pptx), Chorus (.chorus), OpenLyrics XML, lyrics or ChordPro text, chord chart PDFs")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -289,9 +291,9 @@ extension AppModel {
     private func importFiles(_ files: [URL], through route: ServiceItemChooserLogic.ImportRoute) async -> [String] {
         switch route {
         case .slidesFile: await importPresentationFiles(files)
-        case .proPresenter: await runProPresenterImport(files)
         case .powerPoint: await runPowerPointImport(files)
         case .lyrics: await importLyricsFiles(files)
+        case .openLyrics: await importOpenLyricsFiles(files)
         case .media: await importFiles(files)
         }
     }
@@ -315,5 +317,87 @@ extension AppModel {
             }
         }
         return ids
+    }
+
+    func importOpenLyricsFiles(_ urls: [URL], linesPerSlide: Int = 2, includeTransliteration: Bool = true) async -> [String] {
+        var ids: [String] = []
+        var failures: [String] = []
+        for url in urls {
+            let result = await Task.detached(priority: .userInitiated) {
+                () -> ([OpenLyricsImporter.Song]?, String?) in
+                do {
+                    return (try OpenLyricsImporter.parseSongs(Data(contentsOf: url)), nil)
+                } catch {
+                    return (nil, error.localizedDescription)
+                }
+            }.value
+            guard let songs = result.0 else {
+                failures.append("\(url.lastPathComponent): \(result.1 ?? "Could not read OpenLyrics file")")
+                continue
+            }
+            let importResult = await importOpenLyricsSongs(
+                songs, sourceName: url.lastPathComponent,
+                linesPerSlide: linesPerSlide, includeTransliteration: includeTransliteration
+            )
+            ids += importResult.ids
+            failures += importResult.failures
+        }
+        if !ids.isEmpty || !failures.isEmpty {
+            let imported = ids.isEmpty ? nil : "Imported \(ids.count) OpenLyrics song\(ids.count == 1 ? "" : "s")"
+            let details = [imported].compactMap { $0 } + failures
+            noteImportSummary(details.joined(separator: "\n"))
+        }
+        return ids
+    }
+
+    @discardableResult
+    func importOpenLyricsSongs(
+        _ songs: [OpenLyricsImporter.Song],
+        sourceName: String,
+        linesPerSlide: Int = 2,
+        includeTransliteration: Bool = true,
+        onProgress: (@MainActor @Sendable (Int, Int) -> Void)? = nil
+    ) async -> OpenLyricsImportResult {
+        let chunkSize = LibraryClient.bulkChunkSize
+        var result = OpenLyricsImportResult(ids: [], failures: [])
+
+        for start in stride(from: 0, to: songs.count, by: chunkSize) {
+            let end = min(start + chunkSize, songs.count)
+            let chunk = Array(songs[start..<end])
+            let lyricSongs = chunk.enumerated().map { offset, source in
+                var song = SongLyrics.openLyrics(
+                    source, includeTransliteration: includeTransliteration
+                )
+                if source.title?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                    song.name = "\(sourceName) - Song \(start + offset + 1)"
+                }
+                return song
+            }
+
+            do {
+                _ = try await createInDrive(lyricSongs).value
+                result.ids.append(contentsOf: lyricSongs.map(\.id))
+            } catch {
+                let writeError = error.localizedDescription
+                do {
+                    let snapshot = try await client.settledSnapshot()
+                    let persistedIDs = Set(snapshot.entries(of: .song).map(\.id))
+                    for song in lyricSongs {
+                        if persistedIDs.contains(song.id) {
+                            result.ids.append(song.id)
+                        } else {
+                            result.failures.append("\(song.name): \(writeError)")
+                        }
+                    }
+                } catch {
+                    result.failures.append(
+                        "\(sourceName) songs \(start + 1)-\(end): \(writeError); "
+                            + "could not verify which records were saved: \(error.localizedDescription)")
+                }
+            }
+            onProgress?(end, songs.count)
+            await Task.yield()
+        }
+        return result
     }
 }

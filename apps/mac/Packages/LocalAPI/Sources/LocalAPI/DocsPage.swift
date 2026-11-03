@@ -28,14 +28,15 @@ public enum DocsPage {
         <html lang="en"><head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>MxU Slides — Local API</title>
+        <title>Chorus — Local API</title>
         <style>\(css)</style>
         </head><body>
         <header>
-          <h1>MxU Slides — Local API</h1>
+          <h1>Chorus — Local API</h1>
           <p class="lede">Local show-control and content API served by this Mac.
           API version \(escape(OpenAPIDocument.apiVersion)) · document schema v\(schemaVersion).</p>
           <p class="base">Base URL <code>http://\(escape(baseURL))</code></p>
+          <p><a href="/remote">Open the touch-friendly remote control ↗</a></p>
         </header>
         <div class="layout">
           <nav>\(nav)<a href="/openapi.json">openapi.json ↗</a><a href="/asyncapi.json">asyncapi.json ↗</a></nav>

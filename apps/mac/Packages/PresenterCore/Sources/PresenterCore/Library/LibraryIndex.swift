@@ -621,7 +621,7 @@ import SQLite3
         let match = trimmed
             .split(separator: " ")
             .map { "\"\($0.replacingOccurrences(of: "\"", with: "\"\""))\"*" }
-            .joined(separator: " ")
+            .joined(separator: " OR ")
         let sql =
             "SELECT \(Self.entryColumns), " +
             "snippet(entities_fts, 1, '', '', '…', 8) " +
@@ -656,6 +656,61 @@ import SQLite3
             ))
         }
 
+        var knownIDs = Set(hits.map(\.entry.id))
+        let fuzzySQL =
+            "SELECT e.id, e.kind, e.subkind, e.name, e.updated_at, u.last_used_at, e.origin, f.content " +
+            "FROM entities e LEFT JOIN entities_fts f ON f.id = e.id " +
+            "LEFT JOIN usage u ON u.id = e.id LIMIT 20000"
+        let fuzzyStmt: OpaquePointer
+        do {
+            fuzzyStmt = try prepare(fuzzySQL, binds: [])
+        } catch {
+            return hits
+        }
+        defer { sqlite3_finalize(fuzzyStmt) }
+        var fuzzyStep = sqlite3_step(fuzzyStmt)
+        while fuzzyStep == SQLITE_ROW {
+            guard
+                let idText = sqlite3_column_text(fuzzyStmt, 0),
+                let kindText = sqlite3_column_text(fuzzyStmt, 1),
+                let subkindText = sqlite3_column_text(fuzzyStmt, 2),
+                let nameText = sqlite3_column_text(fuzzyStmt, 3),
+                let kind = DocumentKind(rawValue: String(cString: kindText))
+            else {
+                fuzzyStep = sqlite3_step(fuzzyStmt)
+                continue
+            }
+            let id = String(cString: idText)
+            guard !knownIDs.contains(id) else {
+                fuzzyStep = sqlite3_step(fuzzyStmt)
+                continue
+            }
+            let name = String(cString: nameText)
+            let content = sqlite3_column_text(fuzzyStmt, 7).map { String(cString: $0) } ?? ""
+            guard FuzzySearch.matches(trimmed, in: name)
+                || FuzzySearch.matches(trimmed, in: content)
+            else {
+                fuzzyStep = sqlite3_step(fuzzyStmt)
+                continue
+            }
+            hits.append(Hit(
+                entry: Entry(
+                    id: id,
+                    kind: kind,
+                    subkind: String(cString: subkindText),
+                    name: name,
+                    updatedAt: Date(timeIntervalSince1970: sqlite3_column_double(fuzzyStmt, 4)),
+                    lastUsedAt: sqlite3_column_type(fuzzyStmt, 5) == SQLITE_NULL
+                        ? nil : Date(timeIntervalSince1970: sqlite3_column_double(fuzzyStmt, 5)),
+                    origin: sqlite3_column_text(fuzzyStmt, 6).map { String(cString: $0) } ?? ""
+                ),
+                snippet: nil
+            ))
+            knownIDs.insert(id)
+            if hits.count >= 100 { break }
+            fuzzyStep = sqlite3_step(fuzzyStmt)
+        }
+
         let lowered = trimmed.lowercased()
         return hits.sorted { a, b in
             func tier(_ hit: Hit) -> Int {
@@ -666,6 +721,11 @@ import SQLite3
             }
             let (ta, tb) = (tier(a), tier(b))
             if ta != tb { return ta < tb }
+            let sa = FuzzySearch.combinedScore(trimmed, name: a.entry.name, content: a.snippet ?? "")
+                ?? 0
+            let sb = FuzzySearch.combinedScore(trimmed, name: b.entry.name, content: b.snippet ?? "")
+                ?? 0
+            if abs(sa - sb) > 0.01 { return sa > sb }
             switch (a.entry.lastUsedAt, b.entry.lastUsedAt) {
             case let (usedA?, usedB?): return usedA > usedB
             case (.some, nil): return true

@@ -10,7 +10,7 @@ public extension PresentationOrigin {
 
     var label: String {
         let source = switch self.source {
-        case .madeHere: "Made in MxU Slides"
+        case .madeHere: "Made in Chorus"
         case .proPresenter: "ProPresenter import"
         case .planningCenterChart: "Planning Center chart"
         case .planningCenterLyrics: "Planning Center lyrics"
@@ -18,7 +18,7 @@ public extension PresentationOrigin {
         case .lyricsFile: "Lyrics file"
         case .chartFile: "Chord chart file"
         case .pastedLyrics: "Pasted lyrics"
-        case .slidesFile: "MxU Slides file"
+        case .slidesFile: "Chorus file"
         case .duplicate: "Copy"
         }
         return ([source] + [detail].compactMap { $0 }).joined(separator: " · ")

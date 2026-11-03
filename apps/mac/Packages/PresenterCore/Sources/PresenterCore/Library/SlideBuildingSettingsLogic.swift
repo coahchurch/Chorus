@@ -5,6 +5,7 @@ public extension SlideBuildingSettings {
     static let designMapDefaultsKey = "makeSlides.designMap"
     static let messageNotesThemeDefaultsKey = "messageNotesThemeId"
     static let lyricsImportThemeDefaultsKey = "lyricsImportThemeId"
+    static let globalBackgroundDefaultsKey = "globalBackgroundId"
 
     static func fromDefaults(_ defaults: UserDefaults) -> SlideBuildingSettings {
         let map = defaults.data(forKey: designMapDefaultsKey).flatMap { String(data: $0, encoding: .utf8) }
@@ -12,7 +13,8 @@ public extension SlideBuildingSettings {
             id: wellKnownID,
             designMap: map.flatMap { $0.isEmpty ? nil : $0 },
             messageNotesThemeId: defaults.string(forKey: messageNotesThemeDefaultsKey).flatMap { $0.isEmpty ? nil : $0 },
-            lyricsImportThemeId: defaults.string(forKey: lyricsImportThemeDefaultsKey).flatMap { $0.isEmpty ? nil : $0 })
+            lyricsImportThemeId: defaults.string(forKey: lyricsImportThemeDefaultsKey).flatMap { $0.isEmpty ? nil : $0 },
+            globalBackgroundId: defaults.string(forKey: globalBackgroundDefaultsKey).flatMap { $0.isEmpty ? nil : $0 })
     }
 
     static func effective(document: SlideBuildingSettings?, defaults: SlideBuildingSettings) -> SlideBuildingSettings {
@@ -39,11 +41,16 @@ public extension SlideBuildingSettings {
         }
     }
 
+    mutating func setGlobalBackground(_ mediaId: String?) {
+        globalBackgroundId = mediaId?.isEmpty == false ? mediaId : nil
+    }
+
     mutating func fillUnset(from own: SlideBuildingSettings) {
         if designMap == nil { designMap = own.designMap }
         if messageNotesThemeId == nil { messageNotesThemeId = own.messageNotesThemeId }
         if lyricsImportThemeId == nil { lyricsImportThemeId = own.lyricsImportThemeId }
         if lyricsImportDesign == nil { lyricsImportDesign = own.lyricsImportDesign }
+        if globalBackgroundId == nil { globalBackgroundId = own.globalBackgroundId }
     }
 }
 

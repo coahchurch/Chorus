@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize an MxU Slides diagnostics bundle's main-thread evidence.
+"""Summarize a COAH Chorus diagnostics bundle's main-thread evidence.
 
 Usage:
   apps/mac/scripts/hitch-report.py <bundle folder | bundle .zip | breadcrumbs-*.log ...>
@@ -59,12 +59,15 @@ SHORT_MODES = {
 }
 
 APP_MARKERS = (
-    "MxU Slides", "MxU_Slides", "MxUSlides", "PresenterCore", "RenderEngine", "MediaEngine",
+    "COAH Chorus", "Chorus", "MxU Slides", "MxU_Slides", "MxUSlides", "PresenterCore", "RenderEngine", "MediaEngine",
     "AudioEngine", "OutputEngine", "SlideScene", "LocalAPI", "MxUAPI", "ProImport", "PPTXImport",
     "NDIKit", "StreamEngine", "DeckLinkKit",
 )
 
-APP_IMAGES = ("MxU Slides", "MxU Slides.debug.dylib", "MxU Slides", "MxU Slides.debug.dylib")
+APP_IMAGES = (
+    "COAH Chorus", "COAH Chorus.debug.dylib",
+    "MxU Slides", "MxU Slides.debug.dylib",
+)
 PRECEDING_LINES = 3
 PRECEDING_WINDOW = datetime.timedelta(seconds=30)
 
@@ -479,7 +482,7 @@ def main(argv):
     return status
 
 def print_report(args, days, report, offset):
-    print("MxU Slides hitch report — " + ", ".join(args.paths))
+    print("COAH Chorus hitch report — " + ", ".join(args.paths))
     info = (report or {}).get("system_info", {})
     if report is not None:
         print(

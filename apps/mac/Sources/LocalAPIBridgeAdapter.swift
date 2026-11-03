@@ -42,6 +42,7 @@ final class AppAPIBridge: LocalAPIBridge {
     private static func documentKind(_ kind: APIDocumentKind) -> DocumentKind {
         switch kind {
         case .presentations: .presentation
+        case .songs: .song
         case .services: .service
         case .themes: .theme
         case .media: .media
@@ -79,6 +80,7 @@ final class AppAPIBridge: LocalAPIBridge {
     func documentJSON(kind: APIDocumentKind, id: String) async throws -> Data {
         switch Self.documentKind(kind) {
         case .presentation: try await encode(Presentation.self, id: id)
+        case .song: try await encode(SongLyrics.self, id: id)
         case .service: try await encode(Service.self, id: id)
         case .theme: try await encode(Theme.self, id: id)
         case .media: try await encode(MediaItem.self, id: id)
@@ -302,14 +304,16 @@ final class AppAPIBridge: LocalAPIBridge {
     }
 
     private func deckIDs(in service: Service) -> [String] {
-        appModel.runOfShow(service).filter { $0.itemKind == .presentation }.map(\.refId)
+        appModel.runOfShow(service)
+            .filter { $0.itemKind == .presentation || $0.itemKind == .song }
+            .map(\.refId)
     }
 
     private func heldDecks(in service: Service?) -> [String: Presentation]? {
         var decks: [String: Presentation] = [:]
         var complete = true
         for id in service.map(deckIDs(in:)) ?? [] {
-            if let deck = appModel.heldPresentation(id) {
+            if let deck = appModel.presentation(id) {
                 decks[id] = deck
             } else if appModel.presentationExists(id) {
                 complete = false
@@ -340,7 +344,8 @@ final class AppAPIBridge: LocalAPIBridge {
 
     private func positions(in service: Service, decks: [String: Presentation]) -> [FirePosition] {
         var positions: [FirePosition] = []
-        for item in appModel.runOfShow(service) where item.itemKind == .presentation {
+        for item in appModel.runOfShow(service)
+        where item.itemKind == .presentation || item.itemKind == .song {
             guard let presentation = decks[item.refId] else { continue }
             let slides = SlideSceneBuilder.arrangedSlides(
                 for: presentation, arrangementId: item.arrangementId
@@ -878,6 +883,7 @@ final class AppAPIBridge: LocalAPIBridge {
     func createDocument(kind: APIDocumentKind, body: Data) async throws -> String {
         switch Self.documentKind(kind) {
         case .presentation: try await create(Presentation.self, body: body)
+        case .song: try await create(SongLyrics.self, body: body)
         case .service: try await create(Service.self, body: body)
         case .theme: try await create(Theme.self, body: body)
         case .media: try await create(MediaItem.self, body: body)
@@ -898,6 +904,7 @@ final class AppAPIBridge: LocalAPIBridge {
     func updateDocument(kind: APIDocumentKind, id: String, body: Data) async throws {
         switch Self.documentKind(kind) {
         case .presentation: try await update(Presentation.self, id: id, body: body)
+        case .song: try await update(SongLyrics.self, id: id, body: body)
         case .service: try await update(Service.self, id: id, body: body)
         case .theme: try await update(Theme.self, id: id, body: body)
         case .media: try await update(MediaItem.self, id: id, body: body)

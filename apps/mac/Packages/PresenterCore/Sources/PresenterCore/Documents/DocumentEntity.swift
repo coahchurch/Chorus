@@ -2,6 +2,7 @@ import Foundation
 
 public enum DocumentKind: String, CaseIterable, Sendable {
     case presentation
+    case song
     case service
     case theme
     case media
@@ -33,7 +34,7 @@ public enum DocumentKind: String, CaseIterable, Sendable {
 
     public var opensInEditor: Bool {
         switch self {
-        case .presentation, .theme, .overlay, .confidenceLayout, .media, .audio, .note:
+        case .presentation, .song, .theme, .overlay, .confidenceLayout, .media, .audio, .note:
             true
         default:
             false
@@ -43,6 +44,7 @@ public enum DocumentKind: String, CaseIterable, Sendable {
     var directoryName: String {
         switch self {
         case .presentation: "presentations"
+        case .song: "songs"
         case .service: "services"
         case .theme: "themes"
         case .media: "media"
@@ -119,8 +121,14 @@ extension Presentation: DocumentEntity {
     public var indexOrigin: String { originLabel ?? "" }
 
     public var indexText: String {
-        slides.flatMap { $0.objects.map(\.text) }.filter { !$0.isEmpty }.joined(separator: " ")
+        (slides.flatMap { $0.objects.map(\.text) }.filter { !$0.isEmpty }
+            + (tags ?? [])).joined(separator: " ")
     }
+}
+
+extension SongLyrics {
+    public var indexSubkind: String { folder ?? "" }
+    public var indexOrigin: String { "song-lyrics" }
 }
 
 extension Service: DocumentEntity {

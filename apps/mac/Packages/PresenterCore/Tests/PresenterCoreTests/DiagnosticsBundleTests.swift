@@ -24,6 +24,8 @@ private func file(_ name: String, daysAgo: Double, bytes: Int = 10) -> Diagnosti
 }
 
 @Test func crashReportsAreThisAppsAndNewerThanTheLastLaunch() {
+    #expect(DiagnosticsBundle.isCrashReport(fileName: "Chorus-2026-10-07-101500.ips"))
+    #expect(DiagnosticsBundle.isCrashReport(fileName: "Chorus_2026-10-07.hang"))
     #expect(DiagnosticsBundle.isCrashReport(fileName: "MxU Slides-2026-10-07-101500.ips"))
     #expect(DiagnosticsBundle.isCrashReport(fileName: "MxU Slides_2026-10-07.hang"))
     #expect(DiagnosticsBundle.isCrashReport(fileName: "MxU Slides-2026-09-17-101500.ips"), "named before the rename")
@@ -32,10 +34,11 @@ private func file(_ name: String, daysAgo: Double, bytes: Int = 10) -> Diagnosti
 
     let files = [
         file("MxU Slides-new.ips", daysAgo: 0.1), file("MxU Slides-old.ips", daysAgo: 3),
-        file("Safari-new.ips", daysAgo: 0.1),
+        file("Safari-new.ips", daysAgo: 0.1), file("Chorus-new.ips", daysAgo: 0.1),
     ]
     let lastLaunch = now.addingTimeInterval(-86_400)
-    #expect(DiagnosticsBundle.crashReports(in: files, since: lastLaunch).map(\.url.lastPathComponent) == ["MxU Slides-new.ips"])
+    #expect(DiagnosticsBundle.crashReports(in: files, since: lastLaunch).map(\.url.lastPathComponent)
+        == ["MxU Slides-new.ips", "Chorus-new.ips"])
     #expect(DiagnosticsBundle.crashReports(in: files, since: nil).isEmpty, "a first launch has no previous run to blame")
 }
 

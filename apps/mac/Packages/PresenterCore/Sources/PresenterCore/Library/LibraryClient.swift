@@ -103,6 +103,21 @@ import Foundation
     }
 
     @discardableResult
+    public func create<E: DocumentEntity>(
+        _ values: [E], area: LibraryArea? = nil
+    ) -> Task<LibraryBatch, any Error> {
+        let changes = values.map {
+            DocumentChange(kind: E.documentKind, id: $0.id, origin: .local, value: $0)
+        }
+        for change in changes {
+            readSide?.applyOptimistic(change)
+        }
+        return enqueue(changes) { [engine] in
+            try engine.bulkCreate(values, area: area)
+        }
+    }
+
+    @discardableResult
     public func modify<E: DocumentEntity>(
         _ type: E.Type, id: String, _ mutate: @escaping @Sendable (inout E) throws -> Void
     ) -> Task<LibraryBatch, any Error> {

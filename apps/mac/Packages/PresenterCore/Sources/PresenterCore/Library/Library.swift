@@ -112,7 +112,7 @@ import os
     }
 
     nonisolated public static let listedKinds: [DocumentKind] = [
-        .presentation, .service, .theme, .media, .audio, .playlist, .overlay, .outputPreset,
+        .presentation, .song, .service, .theme, .media, .audio, .playlist, .overlay, .outputPreset,
         .alertPreset, .streamRecordPreset, .streamDestination, .actionCombo, .scheduleTrigger,
         .note, .confidenceLayout, .midiDevice,
     ]

@@ -40,6 +40,21 @@ private func expectEquivalent(
 }
 
 @Suite struct BackgroundSourcesMapTests {
+    @Test func globalBackgroundIsUsedAsTheFinalFallback() {
+        let global = cue("global", layer: .loopingVideos)
+        let currentSlide = slide("current")
+        let presentation = Presentation(
+            id: "p", name: "Song", presentationKind: .deck, themeId: "",
+            slides: [currentSlide]
+        )
+        var state = ShowState()
+        state.setGlobalBackground(global)
+
+        state.fire(slide: currentSlide, presentation: presentation)
+
+        #expect(state.liveMedia[.loopingVideos] == global)
+    }
+
     @Test func coverageChainWithSlideOnlyAndForegroundDeclarations() {
         let deck = Presentation(
             id: "p", name: "Song", presentationKind: .deck, themeId: "",

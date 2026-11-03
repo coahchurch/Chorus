@@ -41,7 +41,7 @@ final class TracksController {
 
     var onFoundPlaying: ((TracksPlayerStatus) -> Void)?
 
-    nonisolated static let playerName = "MxU Tracks Player"
+    nonisolated static let playerName = "Chorus Tracks Player"
 
     var hasTracks: Bool { TimelineTracks.hasTracks(model?.trackChannels ?? []) }
 

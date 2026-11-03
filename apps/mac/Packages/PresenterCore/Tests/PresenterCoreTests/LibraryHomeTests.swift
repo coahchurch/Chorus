@@ -15,6 +15,11 @@ import Testing
         #expect(LibraryHome.folder(for: .presentation, named: nil, viewing: top) == "Needs Sorted", "never loose at the top")
         #expect(LibraryHome.folder(for: .presentation, named: nil, viewing: nil) == "Needs Sorted")
         #expect(LibraryHome.folder(for: .theme, named: nil, viewing: nil) == nil, "a kind with no folders")
+        #expect(LibraryHome.folder(for: .song, named: nil, viewing: nil) == nil, "songs without a chosen folder stay unsorted")
+        #expect(LibraryHome.folder(for: .song, named: nil, viewing: .init(kind: .song, area: .team, path: "")) == nil)
+        #expect(LibraryHome.folder(for: .song, named: nil, viewing: .init(kind: .song, area: .team, path: "Hymns")) == "Hymns")
+        #expect(LibraryHome.folder(for: .song, named: "Worship", viewing: nil) == "Worship")
+        #expect(TeamFoldered.kinds.contains(.song))
 
         #expect(LibraryHome.area(for: .service) == .team && LibraryHome.area(for: .actionCombo) == .team)
         #expect(LibraryHome.area(for: .outputPreset) == nil && LibraryHome.area(for: .importLedger) == nil)
@@ -94,10 +99,19 @@ import Testing
             "func importLyrics(",
             "func createPlaylist(in section: LibrarySection) -> String? {",
         ] {
-            let made = try body(of: signature, in: app, length: 900)
+            let made = try body(of: signature, in: app, length: 5000)
             let end = made.range(of: "\n    }\n")?.lowerBound ?? made.endIndex
-            #expect(made[..<end].contains("createInDrive(") && !made[..<end].contains("client.create("), "\(signature) must file its item in the Drive")
+            let body = made[..<end]
+            let usesSongFactory = signature.hasPrefix("func createEntity(")
+                && body.contains("createSong(")
+            #expect(
+                (body.contains("createInDrive(") || usesSongFactory)
+                    && !body.contains("client.create("),
+                "\(signature) must file its item in the Drive"
+            )
         }
+        #expect(try body(of: "func createSong(_ song: SongLyrics) -> String {", in: app)
+            .contains("createInDrive(song)"))
         #expect(try body(of: "func importFiles(_ urls: [URL], placement: LibraryHome.Placement? = nil) async -> [String] {", in: app, length: 4000)
             .contains("placement: placement ?? newPlacement"))
         for signature in ["func importProPresenter(", "func importProPresenterThemes(", "func importProPresenterPlaylists(", "func importPowerPoint("] {

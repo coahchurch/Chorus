@@ -186,7 +186,10 @@ public enum TeamDriveLogic {
     }
 
     private static func nameMatches(_ name: String, words: [String]) -> Bool {
-        !words.isEmpty && words.allSatisfy { name.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+        !words.isEmpty && words.allSatisfy { word in
+            name.range(of: word, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+                || FuzzySearch.matches(word, in: name)
+        }
     }
 
     private static let payloadPrefix = "folder:"

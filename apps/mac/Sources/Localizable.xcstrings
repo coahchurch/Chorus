@@ -1,0 +1,436 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Add a second language" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "இரண்டாவது மொழியைச் சேர்"
+          }
+        }
+      }
+    },
+    "Add transliteration" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "எழுத்துப்பெயர்ப்பைச் சேர்"
+          }
+        }
+      }
+    },
+    "Appearance" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "தோற்றம்"
+          }
+        }
+      }
+    },
+    "Audience" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "பார்வையாளர்கள்"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ரத்து செய்"
+          }
+        }
+      }
+    },
+    "Chords" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ஸ்வரங்கள்"
+          }
+        }
+      }
+    },
+    "Choose English or Tamil for the app interface." : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "பயன்பாட்டு இடைமுகத்திற்காக ஆங்கிலம் அல்லது தமிழைத் தேர்ந்தெடுக்கவும்."
+          }
+        }
+      }
+    },
+    "English" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ஆங்கிலம்"
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "பொது"
+          }
+        }
+      }
+    },
+    "From" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "இதிலிருந்து"
+          }
+        }
+      }
+    },
+    "Generate" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "உருவாக்கு"
+          }
+        }
+      }
+    },
+    "Generate it, then edit as needed—or enter it yourself." : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "உருவாக்கிய பிறகு தேவைக்கேற்ப திருத்தவும்; அல்லது நீங்களே உள்ளிடவும்."
+          }
+        }
+      }
+    },
+    "Import" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "இறக்குமதி செய்"
+          }
+        }
+      }
+    },
+    "Import Lyrics" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "பாடல் வரிகளை இறக்குமதி செய்"
+          }
+        }
+      }
+    },
+    "Language lines must match the primary lyrics." : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "மற்ற மொழி வரிகள் முதன்மை வரிகளுடன் எண்ணிக்கையில் பொருந்த வேண்டும்."
+          }
+        }
+      }
+    },
+    "Detected: SongSelect lyrics — CCLI number will be stamped" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SongSelect பாடல் வரிகள் கண்டறியப்பட்டன — CCLI எண் சேர்க்கப்படும்"
+          }
+        }
+      }
+    },
+    "Detected: ChordPro — chords stripped for slides, kept for charts" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChordPro கண்டறியப்பட்டது — ஸ்லைடுகளில் ஸ்வரங்கள் நீக்கப்படும்; சார்ட்டில் இருக்கும்"
+          }
+        }
+      }
+    },
+    "Detected: chord chart — chords above the words become the song's chords" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ஸ்வர சார்ட் கண்டறியப்பட்டது — சொற்களுக்கு மேலுள்ள ஸ்வரங்கள் பாடலின் ஸ்வரங்களாகும்"
+          }
+        }
+      }
+    },
+    "Plain text — blank lines split slides, labels make sections" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "எளிய உரை — காலி வரிகள் ஸ்லைடுகளைப் பிரிக்கும்; தலைப்புகள் பகுதிகளை உருவாக்கும்"
+          }
+        }
+      }
+    },
+    "Language" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "மொழி"
+          }
+        }
+      }
+    },
+    "Light" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ஒளி"
+          }
+        }
+      }
+    },
+    "Load File…" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "கோப்பை ஏற்று…"
+          }
+        }
+      }
+    },
+    "Lyrics" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "பாடல் வரிகள்"
+          }
+        }
+      }
+    },
+    "Paste Lyrics" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "பாடல் வரிகளை ஒட்டவும்"
+          }
+        }
+      }
+    },
+    "Paste the second language in matching line order." : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "வரிகளின் அதே வரிசையில் இரண்டாவது மொழியை ஒட்டவும்."
+          }
+        }
+      }
+    },
+    "Primary lyrics" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "முதன்மை மொழி வரிகள்"
+          }
+        }
+      }
+    },
+    "Second language" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "இரண்டாவது மொழி"
+          }
+        }
+      }
+    },
+    "Tamil" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "தமிழ்"
+          }
+        }
+      }
+    },
+    "System" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "கணினி"
+          }
+        }
+      }
+    },
+    "Dark" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "இருள்"
+          }
+        }
+      }
+    },
+    "Present" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "நிகழ்த்தல்"
+          }
+        }
+      }
+    },
+    "Edit" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "திருத்து"
+          }
+        }
+      }
+    },
+    "Audio & Video" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ஒலி மற்றும் காணொளி"
+          }
+        }
+      }
+    },
+    "Connections" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "இணைப்புகள்"
+          }
+        }
+      }
+    },
+    "Shortcuts" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "விசைக்குறுக்குகள்"
+          }
+        }
+      }
+    },
+    "Screens" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "திரைகள்"
+          }
+        }
+      }
+    },
+    "Stream & Record" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ஒளிபரப்பு மற்றும் பதிவு"
+          }
+        }
+      }
+    },
+    "Network & API" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "பிணையம் மற்றும் API"
+          }
+        }
+      }
+    },
+    "Search settings" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "அமைப்புகளைத் தேடு"
+          }
+        }
+      }
+    },
+    "One scheme across Present and Edit." : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "நிகழ்த்தல் மற்றும் திருத்தம் ஆகிய இரண்டிலும் ஒரே நிறத் தோற்றம்."
+          }
+        }
+      }
+    },
+    "Dark is the booth default." : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "கட்டுப்பாட்டு அறைக்கான இயல்புநிலை இருண்ட தோற்றம்."
+          }
+        }
+      }
+    },
+    "The slides appear here as you type." : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "நீங்கள் தட்டச்சு செய்யும் போது ஸ்லைடுகள் இங்கே தோன்றும்."
+          }
+        }
+      }
+    },
+    "With Chords" : {
+      "localizations" : {
+        "ta" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ஸ்வரங்களுடன்"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.1"
+}

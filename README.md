@@ -1,8 +1,14 @@
-# MxU Slides
+# COAH Chorus
 
-A native macOS presentation app for churches: lyrics, slides, media, timers, stage displays, multitrack stems, timecode, NDI and DeckLink output, and live streaming. Everything runs on this Mac: no account, no server.
+COAH Chorus is a native macOS presentation app for churches: lyrics (including OpenLyrics XML songbooks), slides, media, timers, stage displays, multitrack stems, timecode, NDI and DeckLink output, and live streaming. Everything runs on this Mac: no account, no server.
 
-MxU Slides is source-available under the PolyForm Shield License 1.0.0. See [LICENSE.md](LICENSE.md).
+Choose English or Tamil in Settings → General → Language. The File → Import → Import OpenLyrics XML workflow preserves Tamil text and available Latin transliteration, and large songbooks import in responsive batches with progress. The separate Songs library supports importing lyrics from the clipboard, creating a song from scratch, and importing OpenLyrics songs. These documents store labeled lyric parts and paired original/transliteration lines—not slides—and generate slide projections only for preview and presentation, so live line-count changes never modify saved lyrics. During Present, adjust how many primary lyric lines appear on each slide; paired transliteration stays with its lyric line and custom song arrangements are preserved. When creating lyrics manually, add aligned lines in a second language and optionally generate an editable Latin transliteration. Generated transliterations use the system's transliteration rules and should be reviewed for accuracy. Untranslated interface text remains in English.
+
+The Library's Bible tab imports OSIS or Zefania XML versions and pairs English/Tamil verses by reference. Like the other Library tabs, Bible can be dragged to reorder it in the tab row. Search by passage or verse text across imported versions, select a verse range, and use **Show Now** to take one verse live without saving a presentation; **Add to Plan** saves selected verses with reference/version labels and attaches them to the current service. The Bible tab can also configure a dedicated lower-third NDI feed with a preview, a selected slide theme, slide-only routing, and a transparent background, without changing the main outputs. In the slide editor, Background has its own inspector tab for song backgrounds. A song's library menu opens lyric checks and searchable tags; a service's menu runs a preflight for missing references, files, and likely bilingual line mismatches.
+
+The Present sidebar keeps Audience, Stage, and Live Stream previews in separate tabs. Audience and Stage can target their own configured screen or stage-layout previews; Live Stream discovers NDI inputs, including OBS, and displays the selected feed without putting it on air. Settings includes a default song theme for unthemed songs; it is applied at presentation time and does not rewrite existing songs. Large library lists are paged in batches, and XML songbook imports write songs in bounded batches while reporting progress.
+
+COAH Chorus is source-available under the PolyForm Shield License 1.0.0. See [LICENSE.md](LICENSE.md).
 
 What the license allows:
 
@@ -26,7 +32,6 @@ Requirements:
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`
 - Node 24 (`.tool-versions`) for the schema codegen and the drive scripts
 - Optional, for NDI inputs and outputs: install the [NDI SDK for Apple](https://ndi.video/for-developers/ndi-sdk/) at `/Library/NDI SDK for Apple`. Without it `NDIKit` builds a stub and NDI is unavailable in the app. After installing or removing the SDK, delete `~/Library/Caches/org.swift.swiftpm/manifests` and use Product › Clean Build Folder. `apps/mac/scripts/release-dmg.sh` still requires it.
-- Optional, for ProPresenter import: `brew install protobuf swift-protobuf`, then run `apps/mac/scripts/generate-propresenter-proto.sh`. Without the generated types `ProImport` builds a stub and the import menu reports that it is unavailable. `apps/mac/scripts/release-dmg.sh` still requires them.
 
 The Blackmagic DeckLink SDK headers are vendored, so DeckLink output needs no install to build.
 
@@ -35,13 +40,13 @@ Build and run:
 ```bash
 cd apps/mac
 xcodegen generate
-xcodebuild -project MxUSlides.xcodeproj -scheme MxUSlides -configuration Debug -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile build
-open "$(xcodebuild -project MxUSlides.xcodeproj -scheme MxUSlides -configuration Debug -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile -showBuildSettings 2>/dev/null | awk '/TARGET_BUILD_DIR/{print $3; exit}')/MxU Slides.app"
+xcodebuild -project Chorus.xcodeproj -scheme Chorus -configuration Debug -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile build
+open "$(xcodebuild -project Chorus.xcodeproj -scheme Chorus -configuration Debug -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile -showBuildSettings 2>/dev/null | awk '/TARGET_BUILD_DIR/{print $3; exit}')/COAH Chorus.app"
 ```
 
-Or open `MxUSlides.xcodeproj` in Xcode after `xcodegen generate` and run the `MxUSlides` scheme. Re-run `xcodegen generate` whenever you add or remove source files; the project file is generated and not checked in.
+Or open `Chorus.xcodeproj` in Xcode after `xcodegen generate` and run the `Chorus` scheme. Re-run `xcodegen generate` whenever you add or remove source files; the project file is generated and not checked in.
 
-Dependency versions are pinned in the checked-in `Package.resolved` files for `LocalAPI`, `StreamEngine`, and `ProImport`. XcodeGen combines those pins into the app's generated lockfile, including SwiftProtobuf only when the ProPresenter sources are present. Re-run `xcodegen generate` after generating or removing those sources; when switching configurations, also clear SwiftPM's manifest cache as described above and clean the build. Every app build verifies the generated lock against the package pins, and the commands above and the release script disable automatic dependency updates. For an intentional dependency update, update the affected package's lockfile, regenerate the project, and test both the package and app.
+Dependency versions are pinned in the checked-in `Package.resolved` files for `LocalAPI` and `StreamEngine`. XcodeGen combines those pins into the app's generated lockfile. Every app build verifies the generated lock against the package pins, and the commands above and the release script disable automatic dependency updates. For an intentional dependency update, update the affected package's lockfile, regenerate the project, and test both the package and app.
 
 ## Building and testing
 
@@ -54,7 +59,6 @@ swift test --package-path SlideScene
 swift test --package-path RenderEngine
 swift test --package-path OutputEngine
 swift test --package-path LocalAPI --force-resolved-versions
-swift test --package-path ProImport --force-resolved-versions --manifest-cache none --disable-build-manifest-caching
 ```
 
 Run `node apps/mac/scripts/test-dependency-locking.mjs` from the repository root to check lock generation and rejection of missing, conflicting, or changed pins.
@@ -73,11 +77,11 @@ That rewrites `PresenterCore/Sources/PresenterCore/Generated/Models.swift` and `
 
 ### Release build
 
-`apps/mac/scripts/release-dmg.sh` builds, Developer ID-signs, notarizes, and staples a DMG. It expects a `notarization-profile` entry in your Keychain (`xcrun notarytool store-credentials`), the NDI SDK's redistributable license file, and the ProPresenter types from `apps/mac/scripts/generate-propresenter-proto.sh`.
+`apps/mac/scripts/release-dmg.sh` builds, Developer ID-signs, notarizes, and staples a DMG. It expects a `notarization-profile` entry in your Keychain (`xcrun notarytool store-credentials`) and the NDI SDK's redistributable license file.
 
 ### Local API
 
-With Settings › Local API enabled, the app serves a REST and WebSocket API on port 6980, authenticated by scoped bearer tokens created in the same pane. `GET /v1/status` returns the live slide; `scripts/*.mjs` show it driving a show. The route table and OpenAPI document live in `apps/mac/Packages/LocalAPI`.
+With Settings › Local API enabled, the app serves a REST and WebSocket API on port 6980, authenticated by scoped bearer tokens created in the same pane. Open `/remote` on a phone on the same trusted network for touch-friendly live controls; the page needs an Operate key. `GET /v1/status` returns the live slide; `scripts/*.mjs` show it driving a show. The route table and OpenAPI document live in `apps/mac/Packages/LocalAPI`.
 
 ### Perf and diagnostics scripts
 

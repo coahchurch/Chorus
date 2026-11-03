@@ -47,6 +47,24 @@ import Testing
         expectInOrder(["listBumpsHeld += 1", "let result = body()", "listBumpsHeld -= 1", "if listBumpsHeld == 0, listBumpOwed {", "listVersion += 1"], in: coalescing, "coalescingListBumps")
     }
 
+    @Test func largeSelectionMenusDoNotExpandAndMoveTheWholeSelectionPerRow() throws {
+        let library = try source("LibraryView.swift")
+        let rowMenus = try block(after: "private func rowMenuLists(for section: LibrarySection) -> RowMenuLists {", in: library)
+        #expect(!rowMenus.contains("selectedEntries()"))
+
+        let entryMenu = try block(after: "private func entryMenu(_ entry: LibraryIndex.Entry, menus: RowMenuLists) -> some View {", in: library)
+        #expect(!entryMenu.contains("selectionBatch"))
+        #expect(!entryMenu.contains("let batch"))
+
+        let model = try source("AppModel.swift")
+        let batchMove = try block(after: "func moveToFolder(\n        _ entries: [LibraryIndex.Entry], folder: String?\n    ) -> Task<Void, any Error> {", in: model)
+        expectInOrder(
+            ["stride(from: 0, to: entries.count, by: LibraryClient.refileChunkSize)",
+             "file(refiles).value"],
+            in: batchMove, "large selection folder move"
+        )
+    }
+
     @Test func theViewMenuSortsAndNarrowsOffMain() throws {
         let model = try source("AppModel.swift")
         let browse = try block(after: "func browserEntries(in section: LibrarySection) -> [LibraryIndex.Entry] {", in: model)

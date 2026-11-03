@@ -166,15 +166,17 @@ public enum SlideSceneBuilder {
         case slide(String)
         case section(String)
         case song
+        case global
     }
 
     public static func backgroundSource(
         slide: Slide,
         presentation: Presentation?,
-        arrangementId: String? = nil
+        arrangementId: String? = nil,
+        globalBackground: CueMedia? = nil
     ) -> (media: CueMedia, source: BackgroundSource)? {
         if let own = slide.background, !own.mediaId.isEmpty { return (own, .slide(slide.id)) }
-        guard let presentation else { return nil }
+        guard let presentation else { return globalBackground.map { ($0, .global) } }
         let sequence = arrangedSlides(for: presentation, arrangementId: arrangementId)
         if let index = sequence.firstIndex(where: { $0.id == slide.id }) {
 
@@ -192,15 +194,17 @@ public enum SlideSceneBuilder {
             return (declared, .section(sectionId))
         }
         if let song = presentation.background, !song.mediaId.isEmpty { return (song, .song) }
+        if let globalBackground { return (globalBackground, .global) }
         return nil
     }
 
     public static func effectiveBackground(
         slide: Slide,
         presentation: Presentation?,
-        arrangementId: String? = nil
+        arrangementId: String? = nil,
+        globalBackground: CueMedia? = nil
     ) -> CueMedia? {
-        backgroundSource(slide: slide, presentation: presentation, arrangementId: arrangementId)?.media
+        backgroundSource(slide: slide, presentation: presentation, arrangementId: arrangementId, globalBackground: globalBackground)?.media
     }
 
     public static func backgroundSources(
@@ -507,7 +511,10 @@ public enum SlideSceneBuilder {
                     RenderItem(
                         id: "\(slide.id)-carried-\(layer.rawValue)",
                         frame: CGRect(origin: .zero, size: canvasSize),
-                        content: .media(id: mediaId, scaleMode: .fill)
+                        content: .media(
+                            id: mediaId,
+                            scaleMode: layer == .loopingVideos ? .fill : .fit
+                        )
                     ),
                     to: layer
                 )
