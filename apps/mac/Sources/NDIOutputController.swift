@@ -124,6 +124,7 @@ final class NDIOutputController {
         mirror = OutputMirror(
             compositor: render.compositor,
             width: width, height: height, framesPerSecond: frameRate,
+            transparentBackground: NDIScreenOutputs.shared.lowerThirdScreenID?.uuidString == targetID,
             provider: provider,
             delayFrames: render.outputs.videoDelayProvider(for: targetID),
 

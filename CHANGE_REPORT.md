@@ -897,3 +897,8 @@ The image includes the app bundle and its embedded runtime dependencies. It is u
 Fixed the dedicated lower-third NDI output retaining an opaque black backdrop. The output engine previously handled transparent backgrounds only in the normal routed-output path; its `.liveStream` fast path returned early after explicitly setting black. Transparent lower-third targets now receive an alpha-zero background in that path as well, preserving downstream compositing over the stream video.
 
 Added a focused regression test covering a live-stream-role output. OutputEngine tests and a full Debug Chorus build passed.
+## 30. NDI lower-third alpha output correction (2026-11-04)
+
+The previous transparency fix correctly changed the scene background and compositor path, but the dedicated NDI controller was still constructing `OutputMirror` with its default opaque render target. The lower-third NDI mirror now passes `transparentBackground: true` when its target is the configured dedicated lower-third screen, allowing the alpha channel to survive Metal rendering and reach the NDI/OBS receiver.
+
+A full Debug Chorus build passed after this correction.
