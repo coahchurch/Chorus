@@ -939,3 +939,12 @@ The Bible search implementation is in `apps/mac/Sources/BibleLibraryView.swift`.
 Corrected the remaining Bible search miss for natural-language queries such as `bless the lord oh my soul`: the normalizer now treats the devotional spelling `oh` as the Bible text token `o`, while retaining punctuation and whitespace normalization. Song-name fallback matching now also uses the shared fuzzy matcher, so capitalization, punctuation, spacing, and small typing differences do not prevent a resident song from appearing when indexed search is delayed or incomplete.
 
 A full Debug Chorus build passed after these changes. User-provided `EnglishBible.xml` and `TamilBible.xml` files remain untracked and were not committed.
+## 38. v2 DMG packaging (2026-11-04)
+
+Created a fresh unsigned v2 distribution image from the verified Debug build after the Bible and song search corrections:
+
+- Output: `apps/mac/build/dmg-v2/COAH-Chorus-v2.dmg`
+- Contents: `Chorus.app` and an `/Applications` installation link
+- Approximate image size: 47 MB
+
+The DMG was mounted read-only and verified to contain the executable app bundle and installation link. User-provided `EnglishBible.xml` and `TamilBible.xml` files were not included.
