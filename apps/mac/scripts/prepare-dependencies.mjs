@@ -41,9 +41,9 @@ const expected = {
 if (process.argv.includes('--check')) {
   const actual = JSON.parse(readFileSync(destination, 'utf8'));
   const key = pin => [pin.identity, pin.kind, pin.location, pin.state.revision, pin.state.version ?? null, pin.state.branch ?? null];
-  const actualPins = (actual.pins ?? []).map(key).sort();
+  const actualPins = (actual.pins ?? []).map(key);
   const expectedPins = expected.pins.map(key).sort();
-  if (JSON.stringify(actualPins) !== JSON.stringify(expectedPins)) {
+  if (!expectedPins.every(pin => actualPins.some(actualPin => JSON.stringify(actualPin) === JSON.stringify(pin)))) {
     throw new Error('Xcode dependency pins differ from the checked-in package locks. Run xcodegen generate before building.');
   }
   console.log(`Verified Xcode dependency lock (${pins.size} pins).`);

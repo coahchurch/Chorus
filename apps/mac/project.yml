@@ -38,6 +38,9 @@ packages:
     path: Packages/StreamEngine
   DeckLinkKit:
     path: Packages/DeckLinkKit
+  SwiftATV:
+    url: https://github.com/jakejarvis/swift-atv.git
+    branch: main
 
 targets:
   Chorus:
@@ -69,6 +72,7 @@ targets:
       - package: PPTXImport
       - package: StreamEngine
       - package: NDIKit
+      - package: SwiftATV
       - target: NDIHelper
         embed: true
       - target: DeckLinkHelper

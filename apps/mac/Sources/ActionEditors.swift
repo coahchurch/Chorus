@@ -425,14 +425,8 @@ struct ActionParameterFields: View {
             }
             repeatPicker(action)
         case .startAirPlay, .stopAirPlay:
-            Picker("Output", selection: Binding(
-                get: { action.airPlayRole ?? AirPlayOutputRole.audience.rawValue },
-                set: { role in update(action.id) { $0.airPlayRole = role } }
-            )) {
-                ForEach(AirPlayOutputRole.allCases) { role in
-                    Text(role.title).tag(role.rawValue)
-                }
-            }
+            Text("AirPlay output is unavailable")
+                .foregroundStyle(.secondary)
         case .clearAll, .clearAudio, .dismissAlert:
             EmptyView()
         }
@@ -828,16 +822,6 @@ struct AddActionMenuItems: View {
                 ForEach(combos, id: \.id) { combo in
                     Button(combo.name) {
                         add(make(.fireCombo) { $0.comboId = combo.id })
-                    }
-                    Menu("AirPlay") {
-                        ForEach(AirPlayOutputRole.allCases) { role in
-                            Button("Start \(role.title)") {
-                                add(make(.startAirPlay) { $0.airPlayRole = role.rawValue })
-                            }
-                            Button("Stop \(role.title)") {
-                                add(make(.stopAirPlay) { $0.airPlayRole = role.rawValue })
-                            }
-                        }
                     }
                 }
             }

@@ -41,6 +41,8 @@ final class ServiceControls {
 
     let tracks = TracksController()
 
+    let appleTVRemote = AppleTVRemoteController()
+
     private var liveMediaIDs: Set<String> = []
 
     private var transitionResweepScheduled = false

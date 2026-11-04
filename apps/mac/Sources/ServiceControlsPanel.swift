@@ -130,6 +130,7 @@ struct ServiceControlsPanel: View {
         case .outputs: OutputsModule(model: model, controls: controls, presets: presets)
         case .liveStream: LiveStreamModule(model: model, controls: controls)
         case .timecode: TimecodeModule(model: model, controls: controls)
+        case .appleTVRemote: AppleTVRemoteModule(remote: controls.appleTVRemote)
         }
     }
 
@@ -254,6 +255,8 @@ struct ServiceControlsPanel: View {
         case .timecode:
 
             return controls.timecode.isLocked && controls.timecode.follows ? .green : nil
+        case .appleTVRemote:
+            return controls.appleTVRemote.selectedDevice == nil ? nil : .green
         }
     }
 }

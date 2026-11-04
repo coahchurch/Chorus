@@ -15,10 +15,12 @@ enum ServiceControlsModule: String, Codable, CaseIterable, Sendable {
     case liveStream
 
     case timecode
+    case appleTVRemote
 
     static let defaultOrder: [ServiceControlsModule] = [
         .combos, .timers, .tracking, .overlays, .audio, .alerts,
         .mixer, .confidence, .outputs, .liveStream, .timecode,
+        .appleTVRemote,
     ]
 
     var title: String {
@@ -34,6 +36,7 @@ enum ServiceControlsModule: String, Codable, CaseIterable, Sendable {
         case .outputs: "Outputs"
         case .liveStream: "Live Stream"
         case .timecode: "Timecode"
+        case .appleTVRemote: "Apple TV"
         }
     }
 
@@ -50,6 +53,7 @@ enum ServiceControlsModule: String, Codable, CaseIterable, Sendable {
         case .outputs: .screens
         case .liveStream: .broadcast
         case .timecode: .timers
+        case .appleTVRemote: .screens
         }
     }
 }

@@ -6,7 +6,6 @@ import SwiftUI
 struct OutputsWindow: View {
     let render: RenderContext?
     let presets: OutputPresetsController?
-    let airPlay: AirPlayOutputController?
 
     @AppStorage("app.appearance") private var appearanceRaw = AppAppearance.dark.rawValue
 
@@ -14,9 +13,6 @@ struct OutputsWindow: View {
         Group {
             if let render {
                 VStack {
-                    if let airPlay {
-                        AirPlayOutputsPanel(controller: airPlay)
-                    }
                     ScreenConfigurationView(render: render, presets: presets)
                 }
             } else {

@@ -9,7 +9,6 @@ final class ActionRouter {
     private unowned let model: AppModel
     private unowned let controls: ServiceControls
     private unowned let presets: OutputPresetsController
-    private weak var airPlay: AirPlayOutputController?
 
     private static let maxDepth = 4
 
@@ -18,13 +17,11 @@ final class ActionRouter {
     init(
         model: AppModel, controls: ServiceControls, presets: OutputPresetsController,
         confidenceMonitor: ConfidenceMonitorController? = nil,
-        airPlay: AirPlayOutputController? = nil
     ) {
         self.model = model
         self.controls = controls
         self.presets = presets
         self.confidenceMonitor = confidenceMonitor
-        self.airPlay = airPlay
     }
 
     private let confidenceMonitor: ConfidenceMonitorController?
@@ -534,14 +531,7 @@ final class ActionRouter {
                 repeatOverride: action.audioRepeat
             )
         case .startAirPlay, .stopAirPlay:
-            guard let role = AirPlayOutputRole(rawValue: action.airPlayRole ?? "audience") else {
-                return miss(action, "airPlayRole")
-            }
-            if action.kind == .startAirPlay {
-                airPlay?.start(role)
-            } else {
-                airPlay?.stop(role)
-            }
+            DiagnosticsStore.shared.note("actions.retired", detail: action.kind.rawValue)
         }
     }
 

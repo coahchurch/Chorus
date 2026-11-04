@@ -34,6 +34,7 @@ struct ModuleWindowView: View {
                         case .outputs: OutputsModule(model: model, controls: controls, presets: presets)
                         case .liveStream: LiveStreamModule(model: model, controls: controls)
                         case .timecode: TimecodeModule(model: model, controls: controls)
+                        case .appleTVRemote: AppleTVRemoteModule(remote: controls.appleTVRemote)
                         }
                     }
                 }
