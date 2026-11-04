@@ -50,6 +50,33 @@ enum WindowBridge {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var windowObserver: NSObjectProtocol?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSWindow.allowsAutomaticWindowTabbing = false
+        configureWindows()
+        windowObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeMainNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.configureWindows()
+        }
+    }
+
+    private func configureWindows() {
+        for window in NSApp.windows {
+            window.tabbingMode = .disallowed
+            window.tabbingIdentifier = ""
+        }
+    }
+
+    deinit {
+        if let windowObserver {
+            NotificationCenter.default.removeObserver(windowObserver)
+        }
+    }
+
     func applicationShouldHandleReopen(
         _ sender: NSApplication, hasVisibleWindows flag: Bool
     ) -> Bool {
@@ -106,6 +133,7 @@ struct MxUSlidesApp: App {
 
     init() {
 
+        NSWindow.allowsAutomaticWindowTabbing = false
         BackupSettings.applyPending()
 
         DiagnosticsStore.shared.activate()
