@@ -52,19 +52,27 @@ enum OnlineLyricsImporter {
         for selector in selectors {
             let elements = try document.select(selector)
             for element in elements {
-                let html = try element.html()
-                let lyrics = html
-                    .replacingOccurrences(of: "<br>", with: "\n")
-                    .replacingOccurrences(of: "<br/>", with: "\n")
-                    .replacingOccurrences(of: "<br />", with: "\n")
-                let text = try SwiftSoup.parse(lyrics).text()
+                let text = try preservedText(in: element)
                     .components(separatedBy: .newlines)
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { line in
+                        let lowered = line.lowercased()
+                        return !lowered.contains("contributor") && lowered != "lyrics"
+                    }
                     .joined(separator: "\n")
                 if text.count >= 20 { return (title, text) }
             }
         }
         throw ImportError.lyricsNotFound
+    }
+
+    private static func preservedText(in node: Node) throws -> String {
+        if let textNode = node as? TextNode {
+            return textNode.getWholeText()
+        }
+        let name = node.nodeName().lowercased()
+        let separator = ["br", "p", "div", "li"].contains(name) ? "\n" : ""
+        return try node.childNodesCopy().map { try preservedText(in: $0) }.joined() + separator
     }
 
     enum ImportError: LocalizedError {
