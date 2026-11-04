@@ -601,6 +601,9 @@ public final class OutputManager {
                         toScreen: canvasSize, mode: scaling.value[screenID] ?? .fit
                     )
                 }
+                if transparentBackgrounds.value.contains(routingKey) {
+                    liveScene.background = SceneColor(red: 0, green: 0, blue: 0, alpha: 0)
+                }
                 return liveScene
             }
             if let screenID, let confidence, roles.value[screenID] == .confidence {

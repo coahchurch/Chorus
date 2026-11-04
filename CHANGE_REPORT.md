@@ -892,3 +892,8 @@ Created an unsigned v1 distribution image from a fresh Release build:
 - Build revision: `76505e6`
 
 The image includes the app bundle and its embedded runtime dependencies. It is unsigned because this Mac has no valid Developer ID signing identity installed; macOS may require the user to approve the app in Privacy & Security on first launch.
+## 29. Transparent live-stream lower third (2026-11-04)
+
+Fixed the dedicated lower-third NDI output retaining an opaque black backdrop. The output engine previously handled transparent backgrounds only in the normal routed-output path; its `.liveStream` fast path returned early after explicitly setting black. Transparent lower-third targets now receive an alpha-zero background in that path as well, preserving downstream compositing over the stream video.
+
+Added a focused regression test covering a live-stream-role output. OutputEngine tests and a full Debug Chorus build passed.

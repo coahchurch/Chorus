@@ -86,4 +86,17 @@ final class SlideThemeRoutingTests: XCTestCase {
             "unrelated outputs keep their existing opaque background"
         )
     }
+
+    func testTransparentBackgroundAppliesToLiveStreamOutput() throws {
+        let outputs = try makeManager()
+        let lowerThird = UUID()
+        outputs.sceneProvider = { taggedScene(100) }
+        outputs.setRole(.liveStream, forScreen: lowerThird)
+        outputs.setTransparentBackgroundTargets([lowerThird.uuidString])
+
+        XCTAssertEqual(
+            outputs.previewProvider(for: lowerThird.uuidString)().background.alpha, 0,
+            "live-stream lower-third output should preserve transparency"
+        )
+    }
 }
