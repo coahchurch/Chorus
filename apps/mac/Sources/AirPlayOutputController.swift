@@ -70,6 +70,7 @@ final class AirPlayOutputController {
                 guard let url = broadcaster.url, let self else { return }
                 let player = AVPlayer(url: url)
                 player.allowsExternalPlayback = true
+                player.play()
                 self.routes[role] = Route(
                     role: role, player: player, url: url,
                     mirror: mirror, broadcaster: broadcaster)
