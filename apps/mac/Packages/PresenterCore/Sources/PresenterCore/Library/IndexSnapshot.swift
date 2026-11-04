@@ -1,4 +1,5 @@
 import Foundation
+import Collections
 
 public struct IndexSnapshot: Sendable, Equatable {
 
@@ -78,11 +79,12 @@ public struct IndexSnapshot: Sendable, Equatable {
 public enum LibraryBrowseLogic {
 
     public static func folders(items: [LibraryIndex.Entry], cloudFolders: [String], empties: [String]) -> [String] {
-        Set(items.map(\.subkind))
-            .union(cloudFolders)
-            .subtracting([""])
-            .union(empties)
-            .sorted()
+        var folders = OrderedSet<String>()
+        folders.append(contentsOf: items.lazy.map(\.subkind))
+        folders.append(contentsOf: cloudFolders)
+        folders.append(contentsOf: empties)
+        folders.remove("")
+        return folders.sorted()
     }
 
     public static func childFolders(folders: [String], held: [String], under prefix: [String]) -> [(name: String, count: Int)] {
@@ -101,10 +103,11 @@ public enum LibraryBrowseLogic {
     public static func occupiedTeamFolders(
         in snapshot: IndexSnapshot, kinds: [DocumentKind], cloudFolders: [String]
     ) -> Set<String> {
-        var occupied = Set(cloudFolders)
+        var occupied = OrderedSet(cloudFolders)
         for kind in kinds where SyncScope.scope(for: kind) == .team {
-            occupied.formUnion(snapshot.browserEntries(of: kind, showing: .team).map(\.subkind))
+            occupied.append(contentsOf: snapshot.browserEntries(of: kind, showing: .team).lazy.map(\.subkind))
         }
-        return occupied.subtracting([""])
+        occupied.remove("")
+        return Set(occupied)
     }
 }

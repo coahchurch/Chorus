@@ -38,6 +38,15 @@ This section documents the current code state in addition to the feature history
   - `NDIKit`: discovery and sending/receiving for NDI.
   - `LocalAPI`: REST, WebSocket, scoped remote control, and `/remote`.
   - `StreamEngine`, `AudioEngine`, and `DeckLinkKit`: streaming, audio, and hardware-output support.
+- Additional external package dependencies are now available to the macOS target:
+  - SwiftNIO for high-performance networking.
+  - SwiftUIX for macOS/SwiftUI component gaps.
+  - MarkdownUI for rich formatted content.
+  - Nuke for image loading and caching.
+  - swift-collections for specialized collection types.
+  - SwiftSoup for HTML parsing and import workflows.
+- `PresenterCore` now uses `swift-collections` `OrderedSet` when assembling folder and occupied-folder index results, preserving deterministic ordering while avoiding repeated intermediate `Set`/array unions.
+- `ThumbnailStore` now uses Nuke's image pipeline for cached image/poster loading, with the existing ImageIO decoder retained as a fallback and AVFoundation video poster extraction unchanged.
 - Application state is rooted in `AppModel`, primarily in `apps/mac/Sources/AppModel.swift`.
 - SwiftUI scene and window creation is split among `COAHApp`, shell views, module views, and panel/scene helpers under `apps/mac/Sources/`.
 - `UserDefaults` stores operator preferences and small selections; authored library documents are stored through the library engine rather than directly as preference values.

@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import ImageIO
+import Nuke
 import PresenterCore
 import RenderEngine
 import SlideScene
@@ -417,7 +418,8 @@ final class ThumbnailStore {
 
             guard let diskURL = posterDisk?.anyPosterURL(id: item.id) else { return nil }
             let image = await Task.detached(priority: priority) {
-                Self.downsampledImage(url: diskURL)
+                await Self.nukeImage(url: diskURL, maxPixels: maxPixels)
+                    ?? Self.downsampledImage(url: diskURL)
             }.value
             if let image { posters.setObject(Box(image), forKey: key as NSString, cost: Self.cost(of: image, large: large)) }
             return image
@@ -433,8 +435,12 @@ final class ThumbnailStore {
         let extraction = Task.detached(priority: priority) { () -> CGImage? in
             switch kind {
             case .image:
-                await Self.imageDecodes.withPermit {
-                    PosterDecode.image(original: url, diskPoster: diskPoster, maxPixelSize: maxPixels)
+                if let image = await Self.nukeImage(url: diskPoster ?? url, maxPixels: maxPixels) {
+                    image
+                } else {
+                    await Self.imageDecodes.withPermit {
+                        PosterDecode.image(original: url, diskPoster: diskPoster, maxPixelSize: maxPixels)
+                    }
                 }
             case .video: await Self.videoPoster(url: url, at: inPoint, maxPixels: maxPixels)
             }
@@ -447,6 +453,20 @@ final class ThumbnailStore {
             if !large { persistPoster(image, for: item) }
         }
         return image
+    }
+
+    private static func nukeImage(url: URL, maxPixels: Int) async -> CGImage? {
+        do {
+            let request = ImageRequest(
+                url: url,
+                processors: [.resize(width: CGFloat(maxPixels), upscale: false)],
+                priority: .high
+            )
+            let image = try await ImagePipeline.shared.image(for: request)
+            return image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        } catch {
+            return nil
+        }
     }
 
     private func persistPoster(_ image: CGImage, for item: MediaItem) {

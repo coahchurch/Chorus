@@ -11,14 +11,15 @@ let package = Package(
         .executable(name: "library-bench", targets: ["library-bench"]),
     ],
     dependencies: [
-
-        .package(path: "../automerge-swift")
+        .package(path: "../automerge-swift"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.1.0")
     ],
     targets: [
         .target(
             name: "PresenterCore",
             dependencies: [
-                .product(name: "Automerge", package: "automerge-swift")
+                .product(name: "Automerge", package: "automerge-swift"),
+                .product(name: "Collections", package: "swift-collections")
             ],
             linkerSettings: [
                 .linkedLibrary("sqlite3")
