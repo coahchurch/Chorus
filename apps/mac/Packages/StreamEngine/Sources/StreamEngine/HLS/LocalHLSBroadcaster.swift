@@ -12,6 +12,7 @@ public final class LocalHLSBroadcaster: @unchecked Sendable {
     private var encoder: HLSVideoEncoder?
     private var muxTask: Task<Void, Never>?
     private var started = false
+    private var timelineStart: Double?
 
     public init(video: StreamVideoConfiguration) {
         self.video = video
@@ -28,11 +29,17 @@ public final class LocalHLSBroadcaster: @unchecked Sendable {
         muxTask = Task { [server] in
             await server.consume(encoder.output)
         }
+        timelineStart = nil
         started = true
     }
 
     public func append(_ pixelBuffer: CVPixelBuffer, atHostSeconds hostSeconds: Double) {
-        guard started, let sample = Self.sampleBuffer(pixelBuffer, at: hostSeconds) else { return }
+        guard started else { return }
+        let start = timelineStart ?? hostSeconds
+        timelineStart = start
+        guard let sample = Self.sampleBuffer(pixelBuffer, at: max(0, hostSeconds - start)) else {
+            return
+        }
         encoder?.encode(sample)
     }
 
@@ -47,6 +54,7 @@ public final class LocalHLSBroadcaster: @unchecked Sendable {
         muxTask = nil
         encoder = nil
         started = false
+        timelineStart = nil
         await server.stop()
         url = nil
     }
