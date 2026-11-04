@@ -72,7 +72,7 @@ final class AirPlayOutputController {
                 mirror.start()
                 await broadcaster.waitForFirstSegment()
                 let item = AVPlayerItem(url: url)
-                item.preferredForwardBufferDuration = 0.5
+                item.preferredForwardBufferDuration = 0.25
                 let player = AVPlayer(playerItem: item)
                 player.allowsExternalPlayback = true
                 player.automaticallyWaitsToMinimizeStalling = false

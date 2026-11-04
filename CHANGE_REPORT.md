@@ -11,7 +11,7 @@
 - AirPlay video timestamps are normalized to a stream-relative zero-based timeline instead of using the compositor's machine uptime clock.
 - Local AirPlay playlists use standard sliding live-HLS metadata with independent segments and no-cache responses.
 - Local MPEG-TS segments now include the required video PAT/PMT program tables so AirPlay receivers can discover and decode the H.264 stream.
-- Local AirPlay playlists use a three-segment live window and a short player forward buffer to reduce end-to-end latency.
+- Local AirPlay uses one-second segments, a three-segment live window, and a short player forward buffer to reduce end-to-end latency.
 - The implementation is in `apps/mac/Packages/StreamEngine/Sources/StreamEngine/HLS/LocalHLSBroadcaster.swift`.
 
 This section documents the current code state in addition to the feature history above. The report is deliberately implementation-oriented: it names the owning file, runtime data flow, persisted values, extension points, and the settings or code location needed to change each behavior.

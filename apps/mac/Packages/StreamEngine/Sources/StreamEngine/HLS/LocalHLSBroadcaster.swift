@@ -5,6 +5,7 @@ import Foundation
 import Network
 
 public final class LocalHLSBroadcaster: @unchecked Sendable {
+    private static let segmentDuration = 1.0
     public let video: StreamVideoConfiguration
     public private(set) var url: URL?
 
@@ -21,7 +22,7 @@ public final class LocalHLSBroadcaster: @unchecked Sendable {
     public func start() async throws {
         guard !started else { return }
         try await server.start()
-        encoder = try HLSVideoEncoder(video: video, segmentDuration: 2)
+        encoder = try HLSVideoEncoder(video: video, segmentDuration: Self.segmentDuration)
         guard let encoder else {
             throw StreamSessionError.transportClosed("Local HLS encoder could not start")
         }
@@ -131,7 +132,7 @@ private actor LocalHLSServer {
     }
 
     func consume(_ samples: AsyncStream<CMSampleBuffer>) async {
-        let writer = TSWriter(segmentDuration: 2)
+        let writer = TSWriter(segmentDuration: 1.0)
         writer.expectedMedias = [.video]
         let state = SegmentState()
         var hasFormat = false
