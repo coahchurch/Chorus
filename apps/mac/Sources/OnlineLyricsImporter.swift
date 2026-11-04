@@ -46,12 +46,12 @@ enum OnlineLyricsImporter {
         let title = try document.select("h1, title").first()?.text()
         let selectors = [
             "[data-lyrics-container=true]",
-            ".lyrics",
             ".songLyricsV2",
-            "[class*=lyrics]"
+            ".lyrics"
         ]
         for selector in selectors {
-            if let element = try document.select(selector).first() {
+            let elements = try document.select(selector)
+            for element in elements {
                 let html = try element.html()
                 let lyrics = html
                     .replacingOccurrences(of: "<br>", with: "\n")
