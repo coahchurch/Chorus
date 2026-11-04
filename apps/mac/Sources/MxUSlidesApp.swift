@@ -24,12 +24,20 @@ enum AppAppearance: String, CaseIterable {
 struct NonRestorableWindow: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
-        DispatchQueue.main.async { view.window?.isRestorable = false }
+        DispatchQueue.main.async {
+            view.window?.isRestorable = false
+            view.window?.tabbingMode = .disallowed
+            view.window?.tabbingIdentifier = ""
+        }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { nsView.window?.isRestorable = false }
+        DispatchQueue.main.async {
+            nsView.window?.isRestorable = false
+            nsView.window?.tabbingMode = .disallowed
+            nsView.window?.tabbingIdentifier = ""
+        }
     }
 }
 
@@ -194,6 +202,7 @@ struct MxUSlidesApp: App {
                     Text("Opening the library…").font(.callout).foregroundStyle(.secondary)
                 }
                 .frame(minWidth: 1280, minHeight: 640)
+                .background(NonRestorableWindow())
                 .environment(\.locale, appLocale)
             } else if let appModel {
 
@@ -211,6 +220,7 @@ struct MxUSlidesApp: App {
                     GoToSlideHUD(keyIn: keyIn).padding(.bottom, 48)
                 }
                 .frame(minWidth: 1280, minHeight: 640)
+                .background(NonRestorableWindow())
 
                 .sheet(isPresented: $showWelcome) {
                     OnboardingView(

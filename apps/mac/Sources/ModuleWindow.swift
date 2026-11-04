@@ -179,6 +179,8 @@ struct ModuleWindowConfigurator: NSViewRepresentable {
     private func configure(_ window: NSWindow?, coordinator: Coordinator) {
         guard let window, coordinator.window !== window else { return }
         window.isRestorable = false
+        window.tabbingMode = .disallowed
+        window.tabbingIdentifier = ""
         window.setFrameUsingName(autosaveName)
         window.setFrameAutosaveName(autosaveName)
         coordinator.attach(to: window)
