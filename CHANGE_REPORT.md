@@ -914,3 +914,8 @@ Fixed stale search results remaining visible while a newer query was being evalu
 Search failures are now recorded in diagnostics instead of being silently discarded, and query tokenization handles all whitespace characters rather than only ASCII spaces.
 
 PresenterCore library-read tests and a full Debug Chorus build passed.
+## 33. Song-name search ranking correction (2026-11-04)
+
+Corrected the FTS query used by the Library search. The prior query searched song names and lyric content together under one 100-result ranking limit; common lyric words could therefore displace matching song names, making a query such as `anbu` appear empty after UI filtering. Prefix terms are now qualified against the indexed `name` column, while the existing fuzzy fallback continues to search full content.
+
+PresenterCore search tests and a full Debug Chorus build passed.

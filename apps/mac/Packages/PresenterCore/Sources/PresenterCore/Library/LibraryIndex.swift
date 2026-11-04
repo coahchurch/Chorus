@@ -620,7 +620,10 @@ import SQLite3
         guard !trimmed.isEmpty else { return [] }
         let match = trimmed
             .split(whereSeparator: \.isWhitespace)
-            .map { "\"\($0.replacingOccurrences(of: "\"", with: "\"\""))\"*" }
+            .map {
+                let token = $0.replacingOccurrences(of: "\"", with: "\"\"")
+                return "name:\"\(token)\"*"
+            }
             .joined(separator: " OR ")
         let sql =
             "SELECT \(Self.entryColumns), " +
