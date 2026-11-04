@@ -27,7 +27,7 @@ import Testing
     @Test func theSidebarReadsListVersionOnlyForSearch() throws {
         let library = try #require(try SourceSweep.app().file("LibraryView.swift"))
         let reads = library.codeLines.enumerated().filter { $0.element.contains("listVersion") }
-        #expect(reads.count == 1 && library.lines[reads[0].offset].contains(".task(id: \"\\(model.listVersion)|\\(model.teamCloudItems.count)|\\(searchText)\")"),
+        #expect(reads.count == 1 && library.lines[reads[0].offset].contains(".onChange(of: model.listVersion)"),
                 "\(reads.map { "LibraryView.swift:\($0.offset + 1)" })")
     }
 }

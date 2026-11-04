@@ -100,6 +100,6 @@ import Testing
 
     let editorBacked = Set(DocumentKind.allCases.filter(\.opensInEditor))
     #expect(editorBacked == [
-        .presentation, .theme, .overlay, .confidenceLayout, .media, .audio, .note,
+        .presentation, .song, .theme, .overlay, .confidenceLayout, .media, .audio, .note,
     ])
 }

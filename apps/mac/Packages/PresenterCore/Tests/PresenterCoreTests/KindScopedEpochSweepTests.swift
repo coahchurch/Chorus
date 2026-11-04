@@ -77,7 +77,6 @@ import Testing
         "LocalAPIBridgeAdapter.swift deleteDocument",
         "LocalAPIBridgeAdapter.swift create",
         "LocalAPIBridgeAdapter.swift update",
-        "WorkspaceImport.swift run",
         "BackupTransfer.swift run",
         "ServiceControls.swift init",  
 
@@ -91,9 +90,7 @@ import Testing
         "AppModel.swift importFiles",
 
         "AppModel.swift importStems",
-        "AppModel.swift importProPresenter",
-        "AppModel.swift importProPresenterThemes",
-        "AppModel.swift importProPresenterPlaylists",
+        "AppModel.swift restoreBundledLibrary",
         "AppModel.swift importPowerPoint",
         "AppModel.swift transcodeFlagged",
     ]

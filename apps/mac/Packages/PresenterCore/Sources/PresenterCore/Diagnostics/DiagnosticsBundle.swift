@@ -48,8 +48,12 @@ public enum DiagnosticsBundle {
 
     public static func isCrashReport(fileName: String) -> Bool {
         let name = fileName.lowercased()
-        return name.hasPrefix("coah chorus") || name.hasPrefix("mxu slides")
-            && ["ips", "crash", "hang", "spin", "diag"].contains((name as NSString).pathExtension)
+        let isThisApp = name.hasPrefix("chorus")
+            || name.hasPrefix("coah chorus")
+            || name.hasPrefix("mxu slides")
+        let isCrashArtifact = ["ips", "crash", "hang", "spin", "diag"]
+            .contains((name as NSString).pathExtension)
+        return isThisApp && isCrashArtifact
     }
 
     public static func crashReports(in candidates: [Candidate], since previousLaunch: Date?) -> [Candidate] {

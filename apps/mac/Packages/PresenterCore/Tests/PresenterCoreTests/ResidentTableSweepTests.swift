@@ -73,7 +73,7 @@ import Testing
     @Test func theFillWaitIsTheDecksWait() throws {
         let model = try source("AppModel.swift")
         let wait = try body(of: "func presentationsFilled(_ ids: [String]) async", in: model)
-        #expect(wait.contains("await decks.ready(ids)"))
+        #expect(wait.contains("await decks.ready(deckIDs)"))
         #expect(!wait.contains("loadValue") && !wait.contains("open("), "no synchronous fallback")
     }
 
@@ -141,7 +141,7 @@ import Testing
             store: try DocumentStore(rootURL: root), epochs: DocumentKindVersions(), fills: DocumentKindVersions())
         let kinds = Set(library.all.map(\.kind))
         #expect(kinds == [
-            .media, .audio, .theme, .service, .playlist, .overlay, .alertPreset,
+            .media, .audio, .theme, .service, .playlist, .overlay, .song, .alertPreset,
             .streamRecordPreset, .streamDestination, .actionCombo, .scheduleTrigger,
             .confidenceLayout, .schedulerBoard, .controlBoard, .groupPalette,
             .effectPresetBoard, .animationPresetBoard, .serviceLinkRules,

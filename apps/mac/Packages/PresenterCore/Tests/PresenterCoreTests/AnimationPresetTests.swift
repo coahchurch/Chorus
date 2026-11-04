@@ -131,7 +131,11 @@ struct AnimationPresetTests {
             for overlay in overlays {
                 checkOrder(overlay.objects, overlay.animationOrder, "\(pack.title)/\(overlay.name)")
                 let steps = overlay.objects.flatMap { $0.animationSteps ?? [] }
-                #expect(steps.contains { $0.kind == .in } && steps.contains { $0.kind == .out }, "\(overlay.name) has In + Out")
+                // Lyric lower thirds update live as the operator advances, so they intentionally
+                // have no fixed enter/exit sequence. Other starter overlays retain both phases.
+                if !overlay.id.hasSuffix(".lyricsLower") {
+                    #expect(steps.contains { $0.kind == .in } && steps.contains { $0.kind == .out }, "\(overlay.name) has In + Out")
+                }
                 for object in overlay.objects {
 
                     let animationSteps = object.animationSteps ?? []

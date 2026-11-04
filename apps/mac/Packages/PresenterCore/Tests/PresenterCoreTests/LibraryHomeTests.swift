@@ -112,11 +112,10 @@ import Testing
         }
         #expect(try body(of: "func createSong(_ song: SongLyrics) -> String {", in: app)
             .contains("createInDrive(song)"))
-        #expect(try body(of: "func importFiles(_ urls: [URL], placement: LibraryHome.Placement? = nil) async -> [String] {", in: app, length: 4000)
+        #expect(try body(of: "func importFiles(", in: app, length: 4000)
             .contains("placement: placement ?? newPlacement"))
-        for signature in ["func importProPresenter(", "func importProPresenterThemes(", "func importProPresenterPlaylists(", "func importPowerPoint("] {
-            #expect(try body(of: signature, in: app).contains("placement"), "\(signature) must land in the Drive")
-        }
+        #expect(try body(of: "func importPowerPoint(", in: app).contains("let placement = newPlacement"),
+                "PowerPoint imports must land in the current Drive location")
         #expect(try body(of: "func duplicate(_ entry: LibraryIndex.Entry) {", in: app, length: 700).contains("createBeside(value, original: id)"))
     }
 

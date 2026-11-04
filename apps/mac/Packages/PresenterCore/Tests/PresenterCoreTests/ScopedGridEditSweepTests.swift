@@ -52,7 +52,7 @@ import Testing
     }
 
     private let structural: [(file: String, token: String)] = [
-
+        ("PresentGridView.swift", "stored.reflowSource = updated.reflowSource")
     ]
 
     @Test func gridFieldEditsWriteThroughTheScopedPaths() throws {

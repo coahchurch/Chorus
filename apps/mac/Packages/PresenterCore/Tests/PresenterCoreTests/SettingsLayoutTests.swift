@@ -72,7 +72,7 @@ import Testing
 
     @Test func tableAndSettingsAgree() throws {
         let file = try #require(SourceSweep.app().file("SettingsView.swift"))
-        let declared = Set(file.text.matches(of: /SettingsRowSpec\(\s*id: "([^"]+)"/).map { String($0.output.1) })
+        let declared = Set(file.text.matches(of: /SettingsRowSpec\s*\(\s*id:\s*"([^"]+)"/).map { String($0.output.1) })
         let placed = Set(SettingsLayout.pages.flatMap(\.rows))
         #expect(declared.subtracting(placed).isEmpty, "not placed: \(declared.subtracting(placed).sorted())")
         #expect(placed.subtracting(declared).isEmpty, "placed but not declared: \(placed.subtracting(declared).sorted())")

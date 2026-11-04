@@ -13,6 +13,7 @@ import Testing
     private let clocks: [String: [Tick]] = [
         "AudioController.swift": [.moves(["elapsed"])],
         "MediaEditorView.swift": [.moves(["elapsed"])],
+        "LivePanel.swift": [.quiet("the NDI preview receive loop updates only the preview frame")],
         "SlideEditorModel+Animations.swift": [.moves(["animationPreviewShownTime"])],
         "PresentationTimelineController.swift": [.moves(["timelinePlayheadTime"])],
         "TimecodeInput.swift": [.moves(["timecodeReading", "timecodeLevel"])],

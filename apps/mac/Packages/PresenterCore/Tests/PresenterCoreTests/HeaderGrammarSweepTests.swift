@@ -54,7 +54,7 @@ import Testing
         }
         #expect(try source("ClearChip.swift").contains(".headerItemBackground(tint: anyContent ? .green : nil)"))
         let preview = try source("LivePanel.swift")
-        let picker = try slice(preview, from: "private var screenPicker: some View {", to: ".help(\"Which screen or layout")
+        let picker = try slice(preview, from: "private func outputPicker", to: ".help(\"Choose the output shown")
         #expect(picker.contains(".headerItemBackground()") && !picker.contains("strokeBorder"), "the Output Preview picker is bare too")
         let broadcast = try source("BroadcastStatusChip.swift")
         let label = try slice(broadcast, from: "private var chipLabel: some View {", to: "private var liveCaption")
@@ -63,7 +63,7 @@ import Testing
 
     @Test func thePresentationTabCarriesTheWholeDeck() throws {
         let inspector = try source("SlideObjectInspector.swift")
-        #expect(inspector.contains("case presentation, slide, object, animation"))
+        #expect(inspector.contains("case presentation, background, slide, object, animation"))
         #expect(inspector.contains("if model.hasPresentationSettings {\n            options.append((.presentation, \"Presentation\"))"))
         let tab = try slice(inspector, from: "private func presentationInspector()", to: "private var deckThemeTitle")
         #expect(tab.contains("model.choosingDeckTheme = true"))

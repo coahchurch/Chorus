@@ -18,7 +18,7 @@ import Testing
 
     @Test func theInspectorShowsThePickWithBothVerbs() throws {
         let inspector = try source("SlideObjectInspector.swift")
-        #expect(inspector.components(separatedBy: "MediaPickCard(").count == 3, "Media and Background sections")
+        #expect(inspector.components(separatedBy: "MediaPickCard(").count == 4, "slide, song and presentation-background sections")
         #expect(!inspector.contains("systemName: \"pencil\""), "no 9pt pencil")
         let card = try source("MediaPickCard.swift")
         #expect(card.contains("Button(\"Replace…\", action: onReplace)"))
@@ -120,7 +120,7 @@ import Testing
 
     @Test func importsAskWithAPictureAndNeverSwapAFile() throws {
         let app = try source("AppModel.swift")
-        let start = try #require(app.range(of: "func importFiles(_ urls: [URL], placement: LibraryHome.Placement? = nil) async -> [String] {"))
+        let start = try #require(app.range(of: "func importFiles("))
         let end = try #require(app.range(of: "func importMediaForPick(", range: start.upperBound..<app.endIndex))
         let body = String(app[start.upperBound..<end.lowerBound])
         #expect(!body.contains("replaceMediaFile(") && !body.contains("replaceAudioFile("))

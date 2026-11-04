@@ -22,10 +22,10 @@ public enum SettingsLayout {
 
     public static let pages: [Page] = [
         Page(id: "general", sections: [
-            Section(nil, ["appearance.scheme"]),
+            Section(nil, ["appearance.scheme", "appearance.largeUI", "appearance.highContrast", "appearance.accent", "appearance.language"]),
         ]),
         Page(id: "present", sections: [
-            Section("Transitions", ["present.slideTransition", "present.mediaTransition"]),
+            Section("Transitions", ["present.slideTransition", "present.mediaTransition", "present.defaultSongTheme"]),
             Section(nil, ["present.clearAllAudio"]),
 
             Section("While presenting", [

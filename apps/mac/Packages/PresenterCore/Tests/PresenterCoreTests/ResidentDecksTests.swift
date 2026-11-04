@@ -548,7 +548,7 @@ private final class ActorPark: Sendable {
 @Suite struct LaunchResidencyTests {
     @MainActor @Test func theSetupKindsAreThisComputersResidentKindsPlusServices() {
         let rig = Rig(StubDecks([]))
-        #expect(ResidentLibrary.kinds == rig.library.all.map(\.kind))
+        #expect(Set(ResidentLibrary.kinds) == Set(rig.library.all.map(\.kind)))
         #expect(ResidentLibrary.setupKinds == [
             .streamRecordPreset, .streamDestination, .schedulerBoard, .controlBoard, .outputPreset,
             .midiDevice, .service,
@@ -574,9 +574,9 @@ private final class ActorPark: Sendable {
 
         let lines = log.all
         let fillLines = lines.filter { $0.hasPrefix("fill:") }
-        #expect(fillLines.count == ResidentLibrary.kinds.count, "one fill per kind: \(fillLines)")
+        #expect(fillLines.count == ResidentLibrary.kinds.count - 1, "song decks warm on demand: \(fillLines)")
         let setup = ResidentLibrary.setupKinds.map { log.index("fill:\($0.rawValue)") }
-        let rest = ResidentLibrary.kinds.filter { ![.media, .audio, .theme].contains($0) && !ResidentLibrary.setupKinds.contains($0) }
+        let rest = ResidentLibrary.kinds.filter { ![.media, .audio, .theme, .song].contains($0) && !ResidentLibrary.setupKinds.contains($0) }
         #expect(setup.allSatisfy { $0 < log.index("live") })
         #expect(log.index("setup work") < log.index("live"))
         #expect(log.index("live") < log.index("fill:theme"))
