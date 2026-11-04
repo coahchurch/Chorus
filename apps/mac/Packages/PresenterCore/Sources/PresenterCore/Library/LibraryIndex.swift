@@ -619,7 +619,7 @@ import SQLite3
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
         let match = trimmed
-            .split(separator: " ")
+            .split(whereSeparator: \.isWhitespace)
             .map { "\"\($0.replacingOccurrences(of: "\"", with: "\"\""))\"*" }
             .joined(separator: " OR ")
         let sql =

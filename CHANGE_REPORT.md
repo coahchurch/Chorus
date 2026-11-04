@@ -907,3 +907,10 @@ A full Debug Chorus build passed after this correction.
 Corrected the target identification for the separate Live Stream screen output. The previous NDI change only recognized the dedicated lower-third screen ID, while the normal screen configured beside Audience and Confidence is identified by its `ScreenRole.liveStream` assignment. NDI output mirrors now enable transparent rendering for any target carrying that role, so the lower-third theme remains composited over transparent video on the separate Live Stream output.
 
 A full Debug Chorus build passed after this correction.
+## 32. Library search refresh correction (2026-11-04)
+
+Fixed stale search results remaining visible while a newer query was being evaluated. Search results are now cleared immediately, tied to the exact query that started the async lookup, and only applied if that query is still current and the task has not been cancelled. This prevents an older result set from appearing under a newer search string.
+
+Search failures are now recorded in diagnostics instead of being silently discarded, and query tokenization handles all whitespace characters rather than only ASCII spaces.
+
+PresenterCore library-read tests and a full Debug Chorus build passed.

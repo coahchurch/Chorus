@@ -711,7 +711,13 @@ final class AppModel {
 
     func search(_ text: String) async -> [LibraryIndex.Hit] {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? [] : ((try? await client.search(trimmed)) ?? [])
+        guard !trimmed.isEmpty else { return [] }
+        do {
+            return try await client.search(trimmed)
+        } catch {
+            DiagnosticsStore.shared.note("library.search.failed", detail: error.localizedDescription)
+            return []
+        }
     }
 
     func entries(of kind: DocumentKind, subkind: String) -> [LibraryIndex.Entry] {

@@ -568,8 +568,13 @@ struct LibrarySidebar: View {
         .scrollContentBackground(.hidden)
 
         .task(id: "\(model.listVersion)|\(model.teamCloudItems.count)|\(searchText)") {
-            searchHits = await model.search(searchText)
-            cloudSearchHits = model.cloudSearch(searchText)
+            let query = searchText
+            searchHits = []
+            cloudSearchHits = []
+            let hits = await model.search(query)
+            guard !Task.isCancelled, query == searchText else { return }
+            searchHits = hits
+            cloudSearchHits = model.cloudSearch(query)
         }
         .onChange(of: model.selectedEntryID) { _, id in
             guard let id, let hit = hits.first(where: { $0.entry.id == id }),
