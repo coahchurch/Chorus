@@ -93,14 +93,24 @@ enum OnlineLyricsImporter {
     }
 
     private static func removingBracketedText(from text: String) -> String {
-        text.replacingOccurrences(
+        let cleaned = text.replacingOccurrences(
             of: #"\[[^\]]*\]"#,
             with: "",
             options: .regularExpression
         )
-        .components(separatedBy: .newlines)
-        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        .joined(separator: "\n")
+        var lines = cleaned.components(separatedBy: .newlines)
+        if let titleIndex = lines.firstIndex(where: {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }) {
+            lines.remove(at: titleIndex)
+            while lines.indices.contains(titleIndex),
+                  lines[titleIndex].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                lines.remove(at: titleIndex)
+            }
+        }
+        return lines
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .joined(separator: "\n")
     }
 
     enum ImportError: LocalizedError {
