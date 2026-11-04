@@ -902,3 +902,8 @@ Added a focused regression test covering a live-stream-role output. OutputEngine
 The previous transparency fix correctly changed the scene background and compositor path, but the dedicated NDI controller was still constructing `OutputMirror` with its default opaque render target. The lower-third NDI mirror now passes `transparentBackground: true` when its target is the configured dedicated lower-third screen, allowing the alpha channel to survive Metal rendering and reach the NDI/OBS receiver.
 
 A full Debug Chorus build passed after this correction.
+## 31. Generic Live Stream screen transparency (2026-11-04)
+
+Corrected the target identification for the separate Live Stream screen output. The previous NDI change only recognized the dedicated lower-third screen ID, while the normal screen configured beside Audience and Confidence is identified by its `ScreenRole.liveStream` assignment. NDI output mirrors now enable transparent rendering for any target carrying that role, so the lower-third theme remains composited over transparent video on the separate Live Stream output.
+
+A full Debug Chorus build passed after this correction.

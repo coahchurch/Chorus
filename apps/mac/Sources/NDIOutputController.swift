@@ -118,13 +118,16 @@ final class NDIOutputController {
         }
 
         let provider = render.outputs.previewProvider(for: targetID)
+        let isTransparentOutput = UUID(uuidString: targetID).map {
+            render.outputs.role(forScreen: $0) == .liveStream
+        } ?? false
 
         nonisolated(unsafe) let remote = proxy
         let inFlight = Locked(0)
         mirror = OutputMirror(
             compositor: render.compositor,
             width: width, height: height, framesPerSecond: frameRate,
-            transparentBackground: NDIScreenOutputs.shared.lowerThirdScreenID?.uuidString == targetID,
+            transparentBackground: isTransparentOutput,
             provider: provider,
             delayFrames: render.outputs.videoDelayProvider(for: targetID),
 
