@@ -81,6 +81,21 @@ private struct FloatingPanelStyle: ViewModifier {
     }
 }
 
+private struct MainAppearanceModifier: ViewModifier {
+    let appearance: AppAppearance
+    let largeUI: Bool
+    let highContrast: Bool
+    let accent: Color
+
+    func body(content: Content) -> some View {
+        content
+            .preferredColorScheme(appearance.colorScheme)
+            .tint(accent)
+            .controlSize(largeUI ? .large : .regular)
+            .contrast(highContrast ? 1.25 : 1.0)
+    }
+}
+
 extension View {
     func floatingPanel() -> some View {
         modifier(FloatingPanelStyle())
@@ -288,6 +303,9 @@ struct ShellView: View {
 
     @AppStorage("shell.sidebarWidthPresent") private var presentSidebarWidth = 272.0
     @AppStorage("app.appearance") private var appearanceRaw = AppAppearance.dark.rawValue
+    @AppStorage("app.largeUI") private var largeUI = false
+    @AppStorage("app.highContrast") private var highContrast = false
+    @AppStorage("app.accentColor") private var accentColorRaw = "indigo"
     @State private var widthGripHovering = false
 
     @State private var draftSidebarWidth: Double?
@@ -339,6 +357,15 @@ struct ShellView: View {
     @State private var servicePickerAnchorID: String?
 
     private var mode: AppMode { AppMode(rawValue: modeRaw) ?? .edit }
+
+    private var accentColor: Color {
+        switch accentColorRaw {
+        case "blue": .blue
+        case "green": .green
+        case "orange": .orange
+        default: .indigo
+        }
+    }
 
     private var railVisible: Bool {
         (mode == .present || mode == .scheduler) && !rightRailHidden
@@ -484,7 +511,12 @@ struct ShellView: View {
         .background(WindowChromeConfigurator(isFullScreen: $isFullScreen))
         .ignoresSafeArea(.container, edges: .top)
 
-        .preferredColorScheme((AppAppearance(rawValue: appearanceRaw) ?? .dark).colorScheme)
+        .modifier(MainAppearanceModifier(
+            appearance: AppAppearance(rawValue: appearanceRaw) ?? .dark,
+            largeUI: largeUI,
+            highContrast: highContrast,
+            accent: accentColor
+        ))
         .focusedSceneValue(\.libraryModel, model)
         .focusedSceneValue(\.serviceControls, controls)
         .focusedSceneValue(\.presentLibrarySearch, findInLibraryAction)
