@@ -39,10 +39,7 @@ fileprivate struct BibleVersionIndex: Sendable {
         let entries = version.verses.map { verse in
             SearchEntry(
                 verse: verse,
-                normalizedText: verse.text.folding(
-                    options: [.caseInsensitive, .diacriticInsensitive],
-                    locale: Locale(identifier: "en_US_POSIX")
-                )
+                normalizedText: Self.normalize(verse.text)
             )
         }
         searchEntries = entries
@@ -59,6 +56,24 @@ fileprivate struct BibleVersionIndex: Sendable {
             }
         }
         searchTrigrams = trigrams
+    }
+
+    fileprivate static func normalize(_ text: String) -> String {
+        let folded = text.folding(
+            options: [.caseInsensitive, .diacriticInsensitive],
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+        return folded
+            .unicodeScalars
+            .map { CharacterSet.alphanumerics.contains($0) ? Character($0) : " " }
+            .reduce(into: "") { result, character in
+                if character == " " {
+                    if result.last?.isWhitespace != true { result.append(character) }
+                } else {
+                    result.append(character)
+                }
+            }
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -354,14 +369,14 @@ struct BibleLibraryView: View {
             }.prefix(limit).map { $0 }
         }
 
-        let normalizedQuery = query.folding(
-            options: [.caseInsensitive, .diacriticInsensitive],
-            locale: Locale(identifier: "en_US_POSIX")
-        )
+        let normalizedQuery = BibleVersionIndex.normalize(query)
         guard !normalizedQuery.isEmpty else { return [] }
+        let queryTokens = normalizedQuery.split(whereSeparator: { $0.isWhitespace }).map(String.init)
         return indexes.flatMap { index in
             let candidateIndexes: [Int]
-            if normalizedQuery.count < 3 {
+            if queryTokens.count > 1 {
+                candidateIndexes = Array(index.searchEntries.indices)
+            } else if normalizedQuery.count < 3 {
                 candidateIndexes = Array(index.searchEntries.indices)
             } else {
                 let queryCharacters = Array(normalizedQuery)
@@ -375,7 +390,10 @@ struct BibleLibraryView: View {
             }
             return candidateIndexes.lazy
                 .compactMap { index.searchEntries.indices.contains($0) ? index.searchEntries[$0] : nil }
-                .filter { $0.normalizedText.contains(normalizedQuery) }
+                .filter { entry in
+                    entry.normalizedText.contains(normalizedQuery)
+                        || queryTokens.allSatisfy { token in entry.normalizedText.contains(token) }
+                }
                 .prefix(limit)
                 .map {
                     BibleXMLImporter.SearchHit(

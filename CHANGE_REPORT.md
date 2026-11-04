@@ -929,3 +929,8 @@ A full Debug Chorus build passed after this correction.
 Added a local indexed-snapshot fallback for song-name searches. Matching song names are now included directly from the resident library snapshot and merged with asynchronous FTS results, so valid names remain discoverable even if the background search task is delayed or the FTS index is temporarily unavailable.
 
 A full Debug Chorus build passed.
+## 36. Bible search normalization correction (2026-11-04)
+
+Fixed Bible full-text search for punctuation, repeated whitespace, short terms, and multi-word queries. Search now normalizes punctuation to searchable word boundaries, folds case and diacritics consistently across English and Tamil text, and matches multi-word queries when all requested tokens occur in a verse. Bible reference lookup remains unchanged and continues to take precedence for inputs such as `John 3:16`.
+
+The Bible search implementation is in `apps/mac/Sources/BibleLibraryView.swift`. A full Debug Chorus build passed after the correction. User-provided `EnglishBible.xml` and `TamilBible.xml` files remain untracked and were not committed.
