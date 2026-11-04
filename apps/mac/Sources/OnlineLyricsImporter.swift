@@ -21,7 +21,7 @@ enum OnlineLyricsImporter {
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response)
         let document = try SwiftSoup.parse(String(decoding: data, as: UTF8.self))
-        return try document.select("a.result__a").compactMap { link in
+        let results: [OnlineLyricsResult] = try document.select("a.result__a").compactMap { link in
             guard let url = resultURL(from: try link.attr("href")) else { return nil }
             let resultTitle = try link.text()
             let result = link.parent()?.parent()
@@ -33,8 +33,10 @@ enum OnlineLyricsImporter {
                 snippet: snippet
             )
         }
-        .prefix(8)
-        .map { $0 }
+        return results
+            .sorted { isGenius($0.url) && !isGenius($1.url) }
+            .prefix(8)
+            .map { $0 }
     }
 
     static func fetchLyrics(from url: URL) async throws -> (title: String?, lyrics: String) {
