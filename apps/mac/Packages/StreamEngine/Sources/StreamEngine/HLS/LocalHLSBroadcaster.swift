@@ -1,5 +1,6 @@
 import CoreMedia
 import CoreVideo
+import Darwin
 import Foundation
 import Network
 
@@ -161,9 +162,42 @@ private actor LocalHLSServer {
     }
 
     private func ready(port: UInt16) {
-        baseURL = URL(string: "http://127.0.0.1:\(port)")
+        guard let address = Self.lanAddress() else {
+            continuation?.resume(throwing: StreamSessionError.transportClosed(
+                "Local HLS server could not find a LAN address"))
+            continuation = nil
+            return
+        }
+        baseURL = URL(string: "http://\(address):\(port)")
         continuation?.resume()
         continuation = nil
+    }
+
+    private static func lanAddress() -> String? {
+        var addresses: [(name: String, address: String)] = []
+        var cursor: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&cursor) == 0 else { return nil }
+        defer { freeifaddrs(cursor) }
+        while let current = cursor {
+            defer { cursor = current.pointee.ifa_next }
+            guard let raw = current.pointee.ifa_addr,
+                  raw.pointee.sa_family == UInt8(AF_INET),
+                  let name = String(validatingCString: current.pointee.ifa_name)
+            else { continue }
+            var address = raw.pointee
+            var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            getnameinfo(
+                &address, socklen_t(raw.pointee.sa_len),
+                &host, socklen_t(host.count),
+                nil, 0, NI_NUMERICHOST)
+            let value = String(
+                decoding: host.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) },
+                as: UTF8.self)
+            guard value != "127.0.0.1" else { continue }
+            addresses.append((name, value))
+        }
+        return addresses.first(where: { $0.name == "en0" || $0.name == "en1" })?.address
+            ?? addresses.first?.address
     }
 
     private func failed(_ error: NWError) {
