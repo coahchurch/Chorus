@@ -63,7 +63,7 @@ fileprivate struct BibleVersionIndex: Sendable {
             options: [.caseInsensitive, .diacriticInsensitive],
             locale: Locale(identifier: "en_US_POSIX")
         )
-        return folded
+        let normalized = folded
             .unicodeScalars
             .map { CharacterSet.alphanumerics.contains($0) ? Character($0) : " " }
             .reduce(into: "") { result, character in
@@ -74,6 +74,10 @@ fileprivate struct BibleVersionIndex: Sendable {
                 }
             }
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized
+            .split(whereSeparator: { $0.isWhitespace })
+            .map { $0 == "oh" ? "o" : String($0) }
+            .joined(separator: " ")
     }
 }
 

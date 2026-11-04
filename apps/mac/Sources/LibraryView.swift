@@ -383,6 +383,13 @@ struct LibrarySidebar: View {
 
     @State private var cloudSearchHits: [TeamCloudItem] = []
 
+    private func songNameMatchesSearch(_ name: String) -> Bool {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return false }
+        return name.localizedCaseInsensitiveContains(query)
+            || FuzzySearch.matches(query, in: name)
+    }
+
     private var headerRow: some View {
         HStack(spacing: 8) {
             Text("Libraries")
@@ -541,7 +548,7 @@ struct LibrarySidebar: View {
 
         let stems = TrackSets.stemIDs(model.trackSets)
         let fallbackHits = model.entries(of: .song)
-            .filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+            .filter { songNameMatchesSearch($0.name) }
             .map { LibraryIndex.Hit(entry: $0, snippet: nil) }
         let allHits = Dictionary(
             (searchHits + fallbackHits).map { ($0.entry.id, $0) },

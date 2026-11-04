@@ -934,3 +934,8 @@ A full Debug Chorus build passed.
 Fixed Bible full-text search for punctuation, repeated whitespace, short terms, and multi-word queries. Search now normalizes punctuation to searchable word boundaries, folds case and diacritics consistently across English and Tamil text, and matches multi-word queries when all requested tokens occur in a verse. Bible reference lookup remains unchanged and continues to take precedence for inputs such as `John 3:16`.
 
 The Bible search implementation is in `apps/mac/Sources/BibleLibraryView.swift`. A full Debug Chorus build passed after the correction. User-provided `EnglishBible.xml` and `TamilBible.xml` files remain untracked and were not committed.
+## 37. Bible and song search matching correction (2026-11-04)
+
+Corrected the remaining Bible search miss for natural-language queries such as `bless the lord oh my soul`: the normalizer now treats the devotional spelling `oh` as the Bible text token `o`, while retaining punctuation and whitespace normalization. Song-name fallback matching now also uses the shared fuzzy matcher, so capitalization, punctuation, spacing, and small typing differences do not prevent a resident song from appearing when indexed search is delayed or incomplete.
+
+A full Debug Chorus build passed after these changes. User-provided `EnglishBible.xml` and `TamilBible.xml` files remain untracked and were not committed.
