@@ -919,3 +919,8 @@ PresenterCore library-read tests and a full Debug Chorus build passed.
 Corrected the FTS query used by the Library search. The prior query searched song names and lyric content together under one 100-result ranking limit; common lyric words could therefore displace matching song names, making a query such as `anbu` appear empty after UI filtering. Prefix terms are now qualified against the indexed `name` column, while the existing fuzzy fallback continues to search full content.
 
 PresenterCore search tests and a full Debug Chorus build passed.
+## 34. Search task cancellation fix (2026-11-04)
+
+Fixed the remaining Library search failure. The search view’s async task was keyed to the global `listVersion`, which changes during unrelated live-output and library refresh activity. Those changes cancelled the search task before its results could be applied. Search now restarts only when the query or cloud-library count changes, while still rejecting stale or cancelled query results.
+
+A full Debug Chorus build passed after this correction.

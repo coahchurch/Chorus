@@ -567,7 +567,7 @@ struct LibrarySidebar: View {
         .listStyle(.inset)
         .scrollContentBackground(.hidden)
 
-        .task(id: "\(model.listVersion)|\(model.teamCloudItems.count)|\(searchText)") {
+        .task(id: "\(model.teamCloudItems.count)|\(searchText)") {
             let query = searchText
             searchHits = []
             cloudSearchHits = []
