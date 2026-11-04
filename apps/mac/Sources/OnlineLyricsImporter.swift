@@ -60,7 +60,9 @@ enum OnlineLyricsImporter {
                         return !lowered.contains("contributor") && lowered != "lyrics"
                     }
                     .joined(separator: "\n")
-                if text.count >= 20 { return (title, text) }
+                if text.count >= 20 {
+                    return (title, isGenius(url) ? removingBracketedText(from: text) : text)
+                }
             }
         }
         throw ImportError.lyricsNotFound
@@ -73,6 +75,21 @@ enum OnlineLyricsImporter {
         let name = node.nodeName().lowercased()
         let separator = ["br", "p", "div", "li"].contains(name) ? "\n" : ""
         return try node.childNodesCopy().map { try preservedText(in: $0) }.joined() + separator
+    }
+
+    private static func isGenius(_ url: URL) -> Bool {
+        url.host?.lowercased() == "genius.com" || url.host?.lowercased().hasSuffix(".genius.com") == true
+    }
+
+    private static func removingBracketedText(from text: String) -> String {
+        text.replacingOccurrences(
+            of: #"\[[^\]]*\]"#,
+            with: "",
+            options: .regularExpression
+        )
+        .components(separatedBy: .newlines)
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .joined(separator: "\n")
     }
 
     enum ImportError: LocalizedError {
