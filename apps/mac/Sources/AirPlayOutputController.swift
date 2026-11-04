@@ -25,6 +25,7 @@ final class AirPlayOutputController {
         var url: URL?
         var mirror: OutputMirror?
         var broadcaster: LocalHLSBroadcaster?
+        var observations: [NSKeyValueObservation] = []
         var id: String { role.rawValue }
     }
 
@@ -70,12 +71,39 @@ final class AirPlayOutputController {
                 guard let url = broadcaster.url, let self else { return }
                 mirror.start()
                 await broadcaster.waitForFirstSegment()
-                let player = AVPlayer(url: url)
+                let item = AVPlayerItem(url: url)
+                item.preferredForwardBufferDuration = 1
+                let player = AVPlayer(playerItem: item)
                 player.allowsExternalPlayback = true
+                player.automaticallyWaitsToMinimizeStalling = false
+                let observations = [
+                    item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+                        Task { @MainActor in
+                            guard let self else { return }
+                            self.notePlayer(
+                                role: role,
+                                detail: "status=\(item.status.rawValue) error=\(item.error?.localizedDescription ?? "none")")
+                        }
+                    },
+                    item.observe(\.isPlaybackLikelyToKeepUp, options: [.initial, .new]) { [weak self] item, _ in
+                        Task { @MainActor in
+                            guard let self else { return }
+                            self.notePlayer(role: role, detail: "likelyToKeepUp=\(item.isPlaybackLikelyToKeepUp)")
+                        }
+                    },
+                    player.observe(\.timeControlStatus, options: [.initial, .new]) { [weak self] player, _ in
+                        Task { @MainActor in
+                            guard let self else { return }
+                            self.notePlayer(
+                                role: role,
+                                detail: "timeControl=\(player.timeControlStatus.rawValue) reason=\(player.reasonForWaitingToPlay?.rawValue ?? "none")")
+                        }
+                    }
+                ]
                 player.play()
                 self.routes[role] = Route(
                     role: role, player: player, url: url,
-                    mirror: mirror, broadcaster: broadcaster)
+                    mirror: mirror, broadcaster: broadcaster, observations: observations)
             } catch {
                 mirror.stop()
                 await broadcaster.stop()
@@ -95,6 +123,10 @@ final class AirPlayOutputController {
 
     func player(for role: AirPlayOutputRole) -> AVPlayer? {
         routes[role]?.player
+    }
+
+    private func notePlayer(role: AirPlayOutputRole, detail: String) {
+        DiagnosticsStore.shared.note("airplay.player", detail: "\(role.rawValue): \(detail)")
     }
 
     private func provider(for role: AirPlayOutputRole) -> @Sendable () -> RenderScene {

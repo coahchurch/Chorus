@@ -132,6 +132,7 @@ private actor LocalHLSServer {
 
     func consume(_ samples: AsyncStream<CMSampleBuffer>) async {
         let writer = TSWriter(segmentDuration: 2)
+        writer.expectedMedias = [.video]
         let state = SegmentState()
         var hasFormat = false
         writer.sink = { bytes in state.data.append(bytes) }
