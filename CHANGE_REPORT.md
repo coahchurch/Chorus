@@ -47,6 +47,7 @@ This section documents the current code state in addition to the feature history
   - SwiftSoup for HTML parsing and import workflows.
 - `PresenterCore` now uses `swift-collections` `OrderedSet` when assembling folder and occupied-folder index results, preserving deterministic ordering while avoiding repeated intermediate `Set`/array unions.
 - `ThumbnailStore` now uses Nuke's image pipeline for cached image/poster loading, with the existing ImageIO decoder retained as a fallback and AVFoundation video poster extraction unchanged.
+- Songs now include an `Import from online` option. The online importer searches public HTML results, uses SwiftSoup to parse common lyrics-page structures, lets the operator review/edit the fetched lyrics, and creates a normal Chorus song only after confirmation.
 - Application state is rooted in `AppModel`, primarily in `apps/mac/Sources/AppModel.swift`.
 - SwiftUI scene and window creation is split among `COAHApp`, shell views, module views, and panel/scene helpers under `apps/mac/Sources/`.
 - `UserDefaults` stores operator preferences and small selections; authored library documents are stored through the library engine rather than directly as preference values.

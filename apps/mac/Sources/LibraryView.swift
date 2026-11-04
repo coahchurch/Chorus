@@ -41,6 +41,7 @@ struct LibrarySidebar: View {
     @State private var importingLyrics = false
     @State private var importingOpenLyrics = false
     @State private var importingSongClipboard = false
+    @State private var importingOnlineLyrics = false
     @State private var showingBible = false
     @State private var bibleStore = BibleLibraryStore()
     @State private var songReviewTarget: LibraryIndex.Entry?
@@ -169,6 +170,9 @@ struct LibrarySidebar: View {
         }
         .sheet(isPresented: $importingSongClipboard) {
             SongClipboardImportSheet(model: model, onImported: showImported)
+        }
+        .sheet(isPresented: $importingOnlineLyrics) {
+            OnlineLyricsImportSheet(model: model, onImported: showImported)
         }
         .sheet(item: $songReviewTarget) { entry in
             SongReviewView(model: model, presentationID: entry.id)
@@ -1517,6 +1521,9 @@ struct LibrarySidebar: View {
                         }
                         Button("Import from OpenLyrics") {
                             importingOpenLyrics = true
+                        }
+                        Button("Import from online") {
+                            importingOnlineLyrics = true
                         }
                     } label: {
                         Label("New Song", systemImage: "plus")
