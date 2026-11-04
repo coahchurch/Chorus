@@ -59,6 +59,11 @@ public final class OutputWindowController {
         window.orderOut(nil)
         window.contentView = nil
     }
+
+    public func setOverlay(_ view: NSView?) {
+        guard let contentView = window.contentView as? OutputContentView else { return }
+        contentView.setOverlay(view)
+    }
 }
 
 private final class OutputWindow: NSWindow {
@@ -89,6 +94,7 @@ final class OutputContentView: NSView {
     let closeButton: NSButton
     private let hideDelay: TimeInterval
     private var hideTimer: Timer?
+    private weak var overlayView: NSView?
 
     init(
         sceneView: NSView,
@@ -118,6 +124,20 @@ final class OutputContentView: NSView {
     }
 
     var isCloseButtonShown: Bool { !closeButton.isHidden }
+
+    func setOverlay(_ view: NSView?) {
+        overlayView?.removeFromSuperview()
+        overlayView = view
+        guard let view else { return }
+        view.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(view, positioned: .above, relativeTo: closeButton)
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: trailingAnchor),
+            view.topAnchor.constraint(equalTo: topAnchor),
+            view.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()

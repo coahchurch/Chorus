@@ -117,6 +117,7 @@ targets:
         MTL_COMPILER_FLAGS: "-fcikernel"
         MTLLINKER_FLAGS: "-cikernel"
         SWIFT_EMIT_LOC_STRINGS: YES
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/VirtualMirrorReceiver/FairPlay/BridgingHeader.h
     scheme:
       testTargets: []
       gatherCoverageData: false

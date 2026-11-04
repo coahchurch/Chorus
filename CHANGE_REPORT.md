@@ -11,6 +11,18 @@
 
 - Service Controls now includes an Apple TV tab using SwiftATV for discovery, connection, and remote commands.
 
+### Built-in AirPlay receiver
+
+- Service Controls now includes an **AirPlay Receiver** tab powered by the receiver core adapted from `souriscloud/VirtualMirror`.
+- Start the receiver from that tab, then choose **Chorus** in iPhone/iPad Screen Mirroring. The receiver advertises as **Chorus**, reports connection state, and displays the decoded mirror preview.
+- The receiver sources and GPL-3 license are kept under `apps/mac/Sources/VirtualMirrorReceiver/`. The app distribution must preserve that license and corresponding source availability.
+- Decoded AirPlay frames are routed to live Audience and Stage/Confidence output windows and to configured Audience/Confidence NDI senders. Live Stream NDI is intentionally excluded.
+- NDI sender connections remain alive while AirPlay starts or stops; the sender switches between normal Chorus scenes and AirPlay frames without restarting.
+- Ending AirPlay clears the decoder's last frame so Audience, Stage, and NDI outputs return to the normal Chorus scene instead of freezing.
+- The preview polls at 60 Hz and uses immediate presentation timestamps to reduce display latency.
+- AirPlay output overlays are attached through `OutputManager` to active physical and placeholder output windows.
+- The receiver's audio/video networking, FairPlay handling, VideoToolbox decoding, Bonjour advertisement, pairing, and timing services are included in the receiver source directory.
+
 This section documents the current code state in addition to the feature history above. The report is deliberately implementation-oriented: it names the owning file, runtime data flow, persisted values, extension points, and the settings or code location needed to change each behavior.
 
 ### Build and runtime identity

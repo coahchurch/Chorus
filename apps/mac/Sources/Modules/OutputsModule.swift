@@ -1,3 +1,4 @@
+import AppKit
 import RenderEngine
 import SwiftUI
 
@@ -8,6 +9,7 @@ struct OutputsModule: View {
 
     @Environment(\.openWindow) private var openWindow
     @Environment(\.runOnly) private var runOnly
+    @State private var showingAirPlayGuide = false
 
     var body: some View {
         let outputs = controls.render.outputs
@@ -19,6 +21,14 @@ struct OutputsModule: View {
 
                     OutputPresetMenu(presets: presets)
                     Button {
+                        showingAirPlayGuide = true
+                    } label: {
+                        Label("AirPlay Audience", systemImage: "airplayvideo")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Connect the Audience output using macOS AirPlay display controls")
+                    Button {
                         openWindow(id: "outputs")
                     } label: {
                         Image(systemName: "gearshape")
@@ -28,6 +38,9 @@ struct OutputsModule: View {
                     .buttonStyle(.plain)
                     .help("Manage outputs — presets, layer routing, placeholder screens")
                 }
+            }
+            .sheet(isPresented: $showingAirPlayGuide) {
+                AirPlayAudienceGuide()
             }
             ForEach(outputs.displays) { display in
                 let isLive = outputs.isLive(display.uuid)
@@ -45,6 +58,7 @@ struct OutputsModule: View {
                             .font(.caption2)
                             .foregroundStyle(isLive ? Color.green : Color.secondary.opacity(0.7))
                     }
+
                     .padding(.horizontal, 8)
                     .frame(height: 26)
                     .contentShape(Rectangle())
@@ -83,6 +97,63 @@ struct OutputsModule: View {
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.secondary)
             .tracking(0.6)
+    }
+}
+
+private struct AirPlayAudienceGuide: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("Connect Audience with AirPlay", systemImage: "airplayvideo")
+                .font(.title3.weight(.semibold))
+            Text("Chorus uses macOS native AirPlay display controls. This preserves the low-latency system display path and does not create a second video stream inside Chorus.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+                instruction(1, "Make the Chorus Audience output live.")
+                instruction(2, "Click Open Display Settings below.")
+                instruction(3, "In macOS, choose the Apple TV from Screen Mirroring or Add Display.")
+                instruction(4, "Choose Mirror or Extend, then position the Audience display as needed.")
+            }
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Open Display Settings") {
+                    openDisplaySettings()
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+        .frame(width: 480)
+    }
+
+    private func instruction(_ number: Int, _ text: String) -> some View {
+        Label {
+            Text(text)
+        } icon: {
+            Text("\(number)")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Color.accentColor))
+        }
+    }
+
+    private func openDisplaySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.Displays-Settings.extension"),
+              NSWorkspace.shared.open(url)
+        else {
+            DiagnosticsStore.shared.note(
+                "airplay.displaySettings.failed",
+                detail: "Unable to open macOS Display settings"
+            )
+            return
+        }
     }
 }
 

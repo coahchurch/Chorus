@@ -28,6 +28,7 @@ final class NDIOutputController {
     private let render: RenderContext
     private var mirror: OutputMirror?
     private var connection: NSXPCConnection?
+    private let externalFrameProvider = Locked<(() -> CVPixelBuffer?)?>(nil)
 
     private var connectionGeneration = 0
 
@@ -47,12 +48,14 @@ final class NDIOutputController {
         width: Int, height: Int, frameRate: Int,
         sourceRect: CGRect? = nil,
         placement: CGRect? = nil
+        , externalFrameProvider: (() -> CVPixelBuffer?)? = nil
     ) {
         stop()
         self.targetID = targetID
         self.targetName = targetName
         self.sourceRect = sourceRect
         self.placement = placement
+        self.externalFrameProvider.value = externalFrameProvider
         status = .starting
 
         connectionGeneration += 1
@@ -135,8 +138,9 @@ final class NDIOutputController {
             sourceRect: sourceRect,
             placement: placement,
             mask: render.outputs.maskProvider(for: targetID),
-            sink: { pixelBuffer, _ in
-                guard let surfaceRef = CVPixelBufferGetIOSurface(pixelBuffer)?
+            sink: { [weak self] pixelBuffer, _ in
+                let frame = self?.externalFrameProvider.value?() ?? pixelBuffer
+                guard let surfaceRef = CVPixelBufferGetIOSurface(frame)?
                     .takeUnretainedValue()
                 else { return }
                 let claimed = inFlight.withLock { count -> Bool in
@@ -183,6 +187,7 @@ final class NDIOutputController {
     }
 
     func stop() {
+        externalFrameProvider.value = nil
         stopMirror()
         if let proxy = connection?.remoteObjectProxy as? NDIHelperProtocol {
             proxy.stopSender()

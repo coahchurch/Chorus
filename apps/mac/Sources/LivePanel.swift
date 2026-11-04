@@ -13,6 +13,7 @@ struct LivePanel: View {
     let render: RenderContext?
     let controls: ServiceControls?
     let layout: PresentLayoutController?
+    @ObservedObject private var airPlayReceiver: AirPlayReceiverController
 
     @Environment(\.openWindow) private var openWindow
     @Environment(\.runOnly) private var runOnly
@@ -28,6 +29,20 @@ struct LivePanel: View {
     @State private var ndiInput: NDIInputSource?
     @State private var ndiFrame: NSImage?
     @State private var ndiError: String?
+
+    init(
+        model: AppModel,
+        render: RenderContext?,
+        controls: ServiceControls?,
+        layout: PresentLayoutController?
+    ) {
+        self.model = model
+        self.render = render
+        self.controls = controls
+        self.layout = layout
+        self._airPlayReceiver = ObservedObject(
+            wrappedValue: controls?.airPlayReceiver ?? AirPlayReceiverController())
+    }
 
     private enum PreviewMode: String, CaseIterable, Identifiable {
         case audience
@@ -100,12 +115,18 @@ struct LivePanel: View {
             let choices = targetChoices(render, role: role)
             let resolved = resolveTarget(stored, choices: choices)
             if let resolved {
-                LiveSceneView(render: render, screenTargetID: resolved.id)
-                    .aspectRatio(
-                        PreviewTargets.aspect(
-                            of: resolved.id, render: render,
-                            layoutAspects: confidenceMonitor?.previewAspects ?? [:]),
-                        contentMode: .fit)
+                ZStack {
+                    LiveSceneView(render: render, screenTargetID: resolved.id)
+                    if role == .audience,
+                       case .mirroring = airPlayReceiver.state {
+                        VideoDisplayView(videoDecoder: airPlayReceiver.manager.videoDecoder)
+                    }
+                }
+                .aspectRatio(
+                    PreviewTargets.aspect(
+                        of: resolved.id, render: render,
+                        layoutAspects: confidenceMonitor?.previewAspects ?? [:]),
+                    contentMode: .fit)
                     .modifier(PreviewedLayoutKeeper(target: resolved.id))
                     .frame(maxWidth: .infinity)
                     .clipShape(RoundedRectangle.standard(CornerStandard.element))

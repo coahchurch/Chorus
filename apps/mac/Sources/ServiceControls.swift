@@ -43,6 +43,8 @@ final class ServiceControls {
 
     let appleTVRemote = AppleTVRemoteController()
 
+    let airPlayReceiver = AirPlayReceiverController.shared
+
     private var liveMediaIDs: Set<String> = []
 
     private var transitionResweepScheduled = false
@@ -60,6 +62,9 @@ final class ServiceControls {
         self.recording = RecordingController(render: render)
         self.streaming = StreamingController(render: render)
         self.mixer = AudioMixerController(audio: audio)
+        airPlayReceiver.audienceOverlayChanged = { [weak render] view in
+            render?.outputs.setLiveOutputOverlay(view)
+        }
         self.timeline.controls = self
         self.timecode.controls = self
         tracks.model = appModel

@@ -23,6 +23,7 @@ public final class OutputManager {
 
     public private(set) var assignedDisplays: Set<DisplayUUID> = []
     public private(set) var windows: [DisplayUUID: OutputWindowController] = [:]
+    private var audienceOverlay: NSView?
     public private(set) var placeholderScreens: [PlaceholderScreen] = []
 
     public private(set) var placeholderDevices: [UUID: DisplayUUID] = [:]
@@ -682,6 +683,28 @@ public final class OutputManager {
         reconcile()
     }
 
+    public func setAudienceOverlay(_ view: NSView?) {
+        audienceOverlay = view
+        for window in windows.values {
+            window.setOverlay(view)
+        }
+        for window in placeholderWindows.values {
+            window.setOverlay(view)
+        }
+    }
+
+    public func setLiveOutputOverlay(_ view: NSView?) {
+        audienceOverlay = view
+        for (uuid, window) in windows
+        where UUID(uuidString: uuid).map({ role(forScreen: $0) != .liveStream }) == true {
+            window.setOverlay(view)
+        }
+        for (uuid, window) in placeholderWindows
+        where UUID(uuidString: uuid).map({ role(forScreen: $0) != .liveStream }) == true {
+            window.setOverlay(view)
+        }
+    }
+
     private func reconcile() {
         displays = DisplaySnapshot.connectedDisplays()
         let changes = OutputTopology.reconcile(
@@ -706,6 +729,7 @@ public final class OutputManager {
                     sceneProvider: provider(for: uuid),
                     onUserClose: { [weak self] uuid in self?.setLive(uuid, false) }
                 )
+                windows[uuid]?.setOverlay(audienceOverlay)
             }
         }
         reconcilePlaceholderWindows()

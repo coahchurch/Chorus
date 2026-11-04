@@ -64,6 +64,7 @@ final class NDIScreenOutputs {
         let label = info.name.map { "\(screen.name) — \($0)" } ?? screen.name
 
         let placement = render.outputs.placement(forSlice: screenID)
+        let receivesAirPlay = render.outputs.role(forScreen: screenID) != .liveStream
         controller.start(
             targetID: screenID.uuidString,
             targetName: label,
@@ -73,7 +74,10 @@ final class NDIScreenOutputs {
             frameRate: screen.framesPerSecond,
             sourceRect: info.sourceRect == CGRect(x: 0, y: 0, width: 1, height: 1)
                 ? nil : info.sourceRect,
-            placement: placement?.unitRect
+            placement: placement?.unitRect,
+            externalFrameProvider: receivesAirPlay
+                ? { AirPlayReceiverController.shared.manager.videoDecoder.latestPixelBuffer }
+                : nil
         )
         controllers[screenID] = controller
         persist()
@@ -83,6 +87,16 @@ final class NDIScreenOutputs {
         controllers[screenID]?.stop()
         controllers[screenID] = nil
         persist()
+    }
+
+    func refreshForAirPlay(render: RenderContext) {
+        let active = controllers.keys.filter {
+            render.outputs.role(forScreen: $0) != .liveStream
+        }
+        for id in active {
+            disable(screenID: id)
+            enable(screenID: id, render: render)
+        }
     }
 
     func configureLowerThird(themeID: String, render: RenderContext) throws -> UUID {

@@ -131,6 +131,7 @@ struct ServiceControlsPanel: View {
         case .liveStream: LiveStreamModule(model: model, controls: controls)
         case .timecode: TimecodeModule(model: model, controls: controls)
         case .appleTVRemote: AppleTVRemoteModule(remote: controls.appleTVRemote)
+        case .airPlayReceiver: AirPlayReceiverModule(receiver: controls.airPlayReceiver)
         }
     }
 
@@ -257,6 +258,13 @@ struct ServiceControlsPanel: View {
             return controls.timecode.isLocked && controls.timecode.follows ? .green : nil
         case .appleTVRemote:
             return controls.appleTVRemote.selectedDevice == nil ? nil : .green
+        case .airPlayReceiver:
+            switch controls.airPlayReceiver.state {
+            case .mirroring: return .green
+            case .connecting: return .orange
+            case .error: return .red
+            case .idle: return nil
+            }
         }
     }
 }
