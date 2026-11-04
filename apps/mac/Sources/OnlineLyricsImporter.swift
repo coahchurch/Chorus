@@ -33,7 +33,16 @@ enum OnlineLyricsImporter {
                 snippet: snippet
             )
         }
-        return results
+        var usable: [OnlineLyricsResult] = []
+        for result in results {
+            do {
+                _ = try await fetchLyrics(from: result.url)
+                usable.append(result)
+            } catch {
+                continue
+            }
+        }
+        return usable
             .sorted { isGenius($0.url) && !isGenius($1.url) }
             .prefix(8)
             .map { $0 }
