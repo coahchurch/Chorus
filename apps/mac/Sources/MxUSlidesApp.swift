@@ -81,6 +81,7 @@ struct MxUSlidesApp: App {
     @State private var localAPI: LocalAPIController?
 
     @State private var actionRouter: ActionRouter?
+    @State private var airPlay: AirPlayOutputController?
 
     @State private var confidenceMonitor: ConfidenceMonitorController?
 
@@ -138,16 +139,19 @@ struct MxUSlidesApp: App {
             let presets = OutputPresetsController(
                 appModel: model, outputs: render.outputs, controls: controls
             )
+            let airPlay = AirPlayOutputController(render: render)
+            airPlay.restoreEnabledRoutes()
             let confidence = ConfidenceMonitorController(
                 appModel: model, render: render, controls: controls
             )
             let router = ActionRouter(
                 model: model, controls: controls, presets: presets,
-                confidenceMonitor: confidence
+                confidenceMonitor: confidence, airPlay: airPlay
             )
             controls.actionRouter = router
             _actionRouter = State(initialValue: router)
             _confidenceMonitor = State(initialValue: confidence)
+            _airPlay = State(initialValue: airPlay)
             let schedulerController = SchedulerController(
                 model: model, controls: controls, router: router
             )
@@ -309,7 +313,8 @@ struct MxUSlidesApp: App {
                     .background(NonRestorableWindow())
                     .environment(\.locale, appLocale)
             } else {
-                OutputsWindow(render: renderContext, presets: outputPresets)
+                OutputsWindow(
+                    render: renderContext, presets: outputPresets, airPlay: airPlay)
                     .background(NonRestorableWindow())
                     .environment(\.locale, appLocale)
             }

@@ -6,13 +6,19 @@ import SwiftUI
 struct OutputsWindow: View {
     let render: RenderContext?
     let presets: OutputPresetsController?
+    let airPlay: AirPlayOutputController?
 
     @AppStorage("app.appearance") private var appearanceRaw = AppAppearance.dark.rawValue
 
     var body: some View {
         Group {
             if let render {
-                ScreenConfigurationView(render: render, presets: presets)
+                VStack {
+                    if let airPlay {
+                        AirPlayOutputsPanel(controller: airPlay)
+                    }
+                    ScreenConfigurationView(render: render, presets: presets)
+                }
             } else {
                 Text("Metal is not available on this machine.")
                     .padding(40)

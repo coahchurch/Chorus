@@ -50,6 +50,7 @@ extension GlyphKind {
         case .setSignage, .setScreenSource, .clearSignage: .clear
         case .enableAudioInput, .disableAudioInput: .audio
         case .fireAudio, .fireAudioPlaylist: .audio
+        case .startAirPlay, .stopAirPlay: .broadcast
         }
     }
 

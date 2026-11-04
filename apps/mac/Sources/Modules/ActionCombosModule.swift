@@ -752,6 +752,16 @@ struct ActionCombosModule: View {
                     updateAction(comboID, action.id) { $0.audioRepeat = false }
                 }
             }
+        case .startAirPlay, .stopAirPlay:
+            QuietMenuChip(
+                title: "\(action.kind == .startAirPlay ? "Start" : "Stop") \(action.airPlayRole?.capitalized ?? "Audience") AirPlay"
+            ) {
+                ForEach(AirPlayOutputRole.allCases) { role in
+                    Button(role.title) {
+                        updateAction(comboID, action.id) { $0.airPlayRole = role.rawValue }
+                    }
+                }
+            }
         case .clearAll, .clearAudio, .dismissAlert, .setSignage, .setScreenSource, .clearSignage:
             EmptyView()
         }

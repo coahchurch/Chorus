@@ -2262,6 +2262,8 @@ func slideActionLabel(
         "Configure Timer: \(timerName(action.timerId))\(configureDetail(action))"
     case .midiOut: "MIDI Out: ch \(action.midiChannel ?? 1)"
     case .fireCombo: "Run Combo: \(entryName(action.comboId))"
+    case .startAirPlay: "Start AirPlay: \(action.airPlayRole?.capitalized ?? "Audience")"
+    case .stopAirPlay: "Stop AirPlay: \(action.airPlayRole?.capitalized ?? "Audience")"
     case .captureStart: "Start Capture: \(entryName(action.capturePresetId))"
     case .captureStop:
         action.capturePresetId == nil
