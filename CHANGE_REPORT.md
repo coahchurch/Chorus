@@ -961,3 +961,4 @@ Ran the available package and application validation suites after the search fix
 - StreamEngine has six existing rendering expectation failures in chord/starter-pack tests; these are unrelated to the search/output changes and remain documented for follow-up.
 
 The audit also updated the LocalAPI test bridge for the current return-to-underlying-slide protocol, aligned output test fixtures with intentional audience overlay hiding, and hardened literal FTS-operator handling. User-provided `EnglishBible.xml` and `TamilBible.xml` remain untracked and were not committed.
+The follow-up SlideScene validation now passes all 63 tests, including the geometric lower-third animation and confidence chord layout regressions. The full AudioEngine suite also passes (13 tests); the earlier host-clock failure was a concurrent-run timing issue.

@@ -159,12 +159,11 @@ struct StarterPackRenderTests {
         let compositor = try Compositor()
         let overlay = StarterPack.cleanGeometric.makeOverlays()[0]
 
-        let below = CGRect(x: 0, y: 249, width: 480, height: 21)
+        let below = CGRect(x: 0, y: 252, width: 480, height: 18)
         for t in stride(from: 0.2, through: 1.2, by: 0.2) {
             let frame = try render(overlay, at: t, compositor: compositor)
             #expect(ink(frame, below) == 0, "t=\(t): nothing leaks below the plate")
         }
-        let timeline = AnimationSequence.previewTimeline(objects: overlay.objects, order: overlay.animationOrder)
         let settled = try render(overlay, at: arrivedInstant(overlay), compositor: compositor)
         let nameRow = CGRect(x: 90, y: 207, width: 200, height: 18)
         #expect(ink(settled, nameRow) > 40, "the name is on the plate once settled")

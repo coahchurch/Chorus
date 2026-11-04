@@ -164,9 +164,13 @@ public enum ConfidenceLayoutTemplate: String, CaseIterable, Sendable {
                        size: 96, alignment: .left, shrink: true, chords: true),
                 caption("CURRENT SLIDE", x: 60, width: 1800, boxBottom: 706),
                 box("Next Box", x: 60, y: 766, width: 1800, height: 254, color: amber),
-                linked("Next Slide", .nextSlide,
-                       x: 100, y: 796, width: 1720, height: 194,
-                       size: 72, alignment: .left, chords: true, maxLines: 1),
+                {
+                    var next = linked("Next Slide", .nextSlide,
+                                      x: 100, y: 796, width: 1720, height: 194,
+                                      size: 72, alignment: .left, chords: true, maxLines: 1)
+                    next.textStyle?.autoShrink = false
+                    return next
+                }(),
                 caption("NEXT SLIDE", x: 60, width: 1800, boxBottom: 1020, color: amber),
             ]
         )
