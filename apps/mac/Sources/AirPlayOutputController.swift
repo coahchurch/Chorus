@@ -72,7 +72,7 @@ final class AirPlayOutputController {
                 mirror.start()
                 await broadcaster.waitForFirstSegment()
                 let item = AVPlayerItem(url: url)
-                item.preferredForwardBufferDuration = 1
+                item.preferredForwardBufferDuration = 0.5
                 let player = AVPlayer(playerItem: item)
                 player.allowsExternalPlayback = true
                 player.automaticallyWaitsToMinimizeStalling = false
@@ -132,7 +132,14 @@ final class AirPlayOutputController {
     private func provider(for role: AirPlayOutputRole) -> @Sendable () -> RenderScene {
         switch role {
         case .audience:
-            return render.outputs.sceneProvider ?? { .empty }
+            let base = render.outputs.sceneProvider ?? { .empty }
+            return {
+                var scene = base()
+                for index in scene.layers.indices where scene.layers[index].kind == .overlays {
+                    scene.layers[index].isHidden = true
+                }
+                return scene
+            }
         case .stage:
             guard let screen = render.outputs.placeholderScreens.first(where: {
                 render.outputs.role(forScreen: $0.id) == .confidence

@@ -86,7 +86,7 @@ public final class LocalHLSBroadcaster: @unchecked Sendable {
 
 private actor LocalHLSServer {
     private let listener: NWListener?
-    private var playlist = HLSPlaylist()
+    private var playlist = HLSPlaylist(windowSize: 3)
     private var segments: [String: Data] = [:]
     private var continuation: CheckedContinuation<Void, Error>?
     private var baseURL: URL?
@@ -157,7 +157,7 @@ private actor LocalHLSServer {
     func stop() {
         listener?.cancel()
         segments.removeAll()
-        playlist = HLSPlaylist()
+        playlist = HLSPlaylist(windowSize: 3)
         baseURL = nil
     }
 

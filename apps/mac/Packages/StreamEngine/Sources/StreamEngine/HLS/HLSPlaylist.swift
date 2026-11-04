@@ -3,6 +3,7 @@ import Foundation
 struct HLSPlaylist: Sendable, Equatable {
 
     static let window = 5
+    private let windowSize: Int
 
     private(set) var mediaSequence: Int
     private(set) var segments: [Segment] = []
@@ -12,15 +13,16 @@ struct HLSPlaylist: Sendable, Equatable {
         var duration: Double
     }
 
-    init(mediaSequence: Int = 0) {
+    init(mediaSequence: Int = 0, windowSize: Int = Self.window) {
         self.mediaSequence = mediaSequence
+        self.windowSize = max(2, windowSize)
     }
 
     var nextSequence: Int { mediaSequence + segments.count }
 
     mutating func add(name: String, duration: Double) {
         segments.append(Segment(name: name, duration: duration))
-        while segments.count > Self.window {
+        while segments.count > windowSize {
             segments.removeFirst()
             mediaSequence += 1
         }
