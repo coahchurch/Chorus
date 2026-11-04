@@ -540,7 +540,14 @@ struct LibrarySidebar: View {
     private var searchResults: some View {
 
         let stems = TrackSets.stemIDs(model.trackSets)
-        let hits = searchHits.filter { hit in
+        let fallbackHits = model.entries(of: .song)
+            .filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+            .map { LibraryIndex.Hit(entry: $0, snippet: nil) }
+        let allHits = Dictionary(
+            (searchHits + fallbackHits).map { ($0.entry.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        ).values
+        let hits = allHits.filter { hit in
             guard let section = section(for: hit.entry), !stems.contains(hit.entry.id) else { return false }
             return (searchScopes.isEmpty || searchScopes.contains(section)
                     || (hit.entry.kind == .media && searchScopes.contains(.background)))

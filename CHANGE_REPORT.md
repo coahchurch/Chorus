@@ -924,3 +924,8 @@ PresenterCore search tests and a full Debug Chorus build passed.
 Fixed the remaining Library search failure. The search view’s async task was keyed to the global `listVersion`, which changes during unrelated live-output and library refresh activity. Those changes cancelled the search task before its results could be applied. Search now restarts only when the query or cloud-library count changes, while still rejecting stale or cancelled query results.
 
 A full Debug Chorus build passed after this correction.
+## 35. Immediate song-name search fallback (2026-11-04)
+
+Added a local indexed-snapshot fallback for song-name searches. Matching song names are now included directly from the resident library snapshot and merged with asynchronous FTS results, so valid names remain discoverable even if the background search task is delayed or the FTS index is temporarily unavailable.
+
+A full Debug Chorus build passed.
