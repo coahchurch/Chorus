@@ -32,13 +32,9 @@ struct HLSPlaylist: Sendable, Equatable {
             "#EXTM3U",
             "#EXT-X-VERSION:3",
             "#EXT-X-INDEPENDENT-SEGMENTS",
-            "#EXT-X-PLAYLIST-TYPE:EVENT",
             "#EXT-X-TARGETDURATION:\(target)",
             "#EXT-X-MEDIA-SEQUENCE:\(mediaSequence)"
         ]
-        if !segments.isEmpty {
-            lines.append("#EXT-X-START:TIME-OFFSET=-\(String(format: "%.3f", min(4, segments.map(\.duration).reduce(0, +))))")
-        }
         for segment in segments {
             lines.append(String(format: "#EXTINF:%.3f,", segment.duration))
             lines.append(segment.name)
