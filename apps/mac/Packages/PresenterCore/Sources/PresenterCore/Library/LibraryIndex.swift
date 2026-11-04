@@ -618,6 +618,12 @@ import SQLite3
     public func searchHits(_ query: String) throws -> [Hit] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
+        let queryTokens = trimmed.split(whereSeparator: \.isWhitespace)
+        guard !trimmed.contains("\""),
+              !queryTokens.contains(where: { token in
+                  ["AND", "OR", "NOT"].contains(token.uppercased())
+              })
+        else { return [] }
         let match = trimmed
             .split(whereSeparator: \.isWhitespace)
             .map {

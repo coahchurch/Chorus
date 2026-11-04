@@ -948,3 +948,16 @@ Created a fresh unsigned v2 distribution image from the verified Debug build aft
 - Approximate image size: 47 MB
 
 The DMG was mounted read-only and verified to contain the executable app bundle and installation link. User-provided `EnglishBible.xml` and `TamilBible.xml` files were not included.
+## 39. Full validation pass (2026-11-04)
+
+Ran the available package and application validation suites after the search fixes:
+
+- Full Debug Chorus build passed.
+- PresenterCore Bible/import and library-search tests passed.
+- OutputEngine full suite passed: 115 tests.
+- LocalAPI full suite passed.
+- NDIKit, DeckLinkKit, PPTXImport, ProImport, RenderEngine, and MediaEngine targeted suites passed.
+- AudioEngine deterministic tests passed; one host-audio timing test reported `IO proc never ticked` during a concurrent full-suite run and passed when isolated.
+- StreamEngine has six existing rendering expectation failures in chord/starter-pack tests; these are unrelated to the search/output changes and remain documented for follow-up.
+
+The audit also updated the LocalAPI test bridge for the current return-to-underlying-slide protocol, aligned output test fixtures with intentional audience overlay hiding, and hardened literal FTS-operator handling. User-provided `EnglishBible.xml` and `TamilBible.xml` remain untracked and were not committed.

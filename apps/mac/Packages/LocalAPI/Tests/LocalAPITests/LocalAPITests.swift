@@ -206,6 +206,10 @@ final class FakeBridge: LocalAPIBridge {
         calls.append(settled ? "advance:\(steps):settled" : "advance:\(steps)")
     }
 
+    func returnToUnderlyingSlide() throws {
+        calls.append("returnToUnderlyingSlide")
+    }
+
     func clear(_ command: APIClearCommand) throws {
         calls.append("clear:\(command.function ?? command.layer ?? "?")")
     }

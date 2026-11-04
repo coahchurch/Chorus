@@ -187,8 +187,12 @@ final class AlignmentGridTests: XCTestCase {
         }
         let screen = try XCTUnwrap(
             outputs.addPlaceholderScreen(name: "Wall", width: 384, height: 108))
-        let program = RenderScene(canvasSize: CGSize(width: 384, height: 108))
-        outputs.sceneProvider = { program }
+        var program = RenderScene(canvasSize: CGSize(width: 384, height: 108))
+        if let overlays = program.layers.firstIndex(where: { $0.kind == .overlays }) {
+            program.layers[overlays].isHidden = true
+        }
+        let expectedProgram = program
+        outputs.sceneProvider = { expectedProgram }
         let slice = try XCTUnwrap(outputs.addSlice(
             toScreen: screen.id, sourceRect: CGRect(x: 0, y: 0, width: 0.5, height: 1)))
 
@@ -213,8 +217,12 @@ final class AlignmentGridTests: XCTestCase {
         }
         let wall = try XCTUnwrap(outputs.addPlaceholderScreen(name: "Wall", width: 384, height: 108))
         let stream = try XCTUnwrap(outputs.addPlaceholderScreen(name: "Stream", width: 192, height: 108))
-        let program = RenderScene(canvasSize: CGSize(width: 384, height: 108))
-        outputs.sceneProvider = { program }
+        var program = RenderScene(canvasSize: CGSize(width: 384, height: 108))
+        if let overlays = program.layers.firstIndex(where: { $0.kind == .overlays }) {
+            program.layers[overlays].isHidden = true
+        }
+        let expectedProgram = program
+        outputs.sceneProvider = { expectedProgram }
         let slice = try XCTUnwrap(outputs.addSlice(
             toScreen: wall.id, sourceRect: CGRect(x: 0, y: 0, width: 0.5, height: 1)))
         var playback: [Bool] = []
