@@ -9,6 +9,7 @@
 - If no LAN address is available, AirPlay startup fails explicitly rather than publishing an unreachable URL.
 - AirPlay now starts the output mirror before creating `AVPlayer` and waits for the first HLS segment, avoiding an empty-playlist buffering state on receivers.
 - AirPlay video timestamps are normalized to a stream-relative zero-based timeline instead of using the compositor's machine uptime clock.
+- Local AirPlay playlists include live-HLS independent-segment, event, start-offset, and no-cache metadata for receiver compatibility.
 - The implementation is in `apps/mac/Packages/StreamEngine/Sources/StreamEngine/HLS/LocalHLSBroadcaster.swift`.
 
 This section documents the current code state in addition to the feature history above. The report is deliberately implementation-oriented: it names the owning file, runtime data flow, persisted values, extension points, and the settings or code location needed to change each behavior.

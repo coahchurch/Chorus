@@ -241,6 +241,7 @@ private actor LocalHLSServer {
                 let header = "HTTP/1.1 \(body == nil ? "404 Not Found" : "200 OK")\r\n"
                     + "Content-Type: \(contentType)\r\n"
                     + "Content-Length: \(body?.count ?? 0)\r\n"
+                    + "Cache-Control: no-cache, no-store\r\n"
                     + "Connection: close\r\n\r\n"
                 let response = Data(header.utf8) + (body ?? Data())
                 connection.send(content: response, completion: .contentProcessed { _ in
