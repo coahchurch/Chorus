@@ -68,14 +68,16 @@ final class AirPlayOutputController {
             do {
                 try await broadcaster.start()
                 guard let url = broadcaster.url, let self else { return }
+                mirror.start()
+                await broadcaster.waitForFirstSegment()
                 let player = AVPlayer(url: url)
                 player.allowsExternalPlayback = true
                 player.play()
                 self.routes[role] = Route(
                     role: role, player: player, url: url,
                     mirror: mirror, broadcaster: broadcaster)
-                mirror.start()
             } catch {
+                mirror.stop()
                 await broadcaster.stop()
                 DiagnosticsStore.shared.note(
                     "airplay.start.failed", detail: "\(role.rawValue): \(error.localizedDescription)")

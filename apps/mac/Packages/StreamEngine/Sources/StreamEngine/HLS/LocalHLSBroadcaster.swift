@@ -36,6 +36,10 @@ public final class LocalHLSBroadcaster: @unchecked Sendable {
         encoder?.encode(sample)
     }
 
+    public func waitForFirstSegment() async {
+        await server.waitForFirstSegment()
+    }
+
     public func stop() async {
         guard started else { return }
         encoder?.finish()
@@ -111,6 +115,12 @@ private actor LocalHLSServer {
     }
 
     func url() -> URL? { baseURL?.appendingPathComponent("playlist.m3u8") }
+
+    func waitForFirstSegment() async {
+        while playlist.segments.isEmpty {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
 
     func consume(_ samples: AsyncStream<CMSampleBuffer>) async {
         let writer = TSWriter(segmentDuration: 2)

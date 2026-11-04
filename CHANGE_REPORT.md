@@ -7,6 +7,7 @@
 - Local Audience and Stage AirPlay streams now advertise the Mac's reachable LAN IPv4 address instead of `127.0.0.1`.
 - The embedded HLS listener still binds to all interfaces, while `getifaddrs` selects `en0`/`en1` first and falls back to another non-loopback IPv4 address.
 - If no LAN address is available, AirPlay startup fails explicitly rather than publishing an unreachable URL.
+- AirPlay now starts the output mirror before creating `AVPlayer` and waits for the first HLS segment, avoiding an empty-playlist buffering state on receivers.
 - The implementation is in `apps/mac/Packages/StreamEngine/Sources/StreamEngine/HLS/LocalHLSBroadcaster.swift`.
 
 This section documents the current code state in addition to the feature history above. The report is deliberately implementation-oriented: it names the owning file, runtime data flow, persisted values, extension points, and the settings or code location needed to change each behavior.
