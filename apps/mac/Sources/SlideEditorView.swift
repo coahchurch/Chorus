@@ -433,6 +433,17 @@ struct SlideEditorView: View {
             })
         .overlay { ListMarqueeBand(rect: slideMarquee) }
         .focused($slideListFocused)
+        .onAppear { slideListFocused = true }
+        .onKeyPress(keys: [.leftArrow]) { press in
+            guard press.modifiers.isEmpty else { return .ignored }
+            model.selectAdjacentSlide(-1)
+            return .handled
+        }
+        .onKeyPress(keys: [.rightArrow]) { press in
+            guard press.modifiers.isEmpty else { return .ignored }
+            model.selectAdjacentSlide(1)
+            return .handled
+        }
         .onSlideClipboardKeys(active: slideListFocused) { verb in
             switch verb {
             case .copy: model.copySelectedSlides()

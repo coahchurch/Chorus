@@ -195,11 +195,6 @@ final class KeyInController {
                 DiagnosticsStore.shared.note("key.in.runOnly", detail: chord.display)
                 return true
             case .command(let command) where Self.monitorExecuted.contains(command):
-
-                if command == .nextSlide || command == .previousSlide,
-                   command.defaultChords.contains(where: { $0.matches(chord) }) {
-                    return false
-                }
                 execute(command)
                 return true
             case .generated(let key):

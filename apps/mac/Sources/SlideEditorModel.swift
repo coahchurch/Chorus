@@ -1042,6 +1042,21 @@ final class SlideEditorModel {
         refreshScene()
     }
 
+    func selectAdjacentSlide(_ direction: Int) {
+        guard direction != 0, !presentation.slides.isEmpty else { return }
+        let currentIndex = selectedSlideID.flatMap { id in
+            presentation.slides.firstIndex { $0.id == id }
+        }
+        let nextIndex: Int
+        if let currentIndex {
+            nextIndex = currentIndex + (direction > 0 ? 1 : -1)
+        } else {
+            nextIndex = direction > 0 ? 0 : presentation.slides.count - 1
+        }
+        guard presentation.slides.indices.contains(nextIndex) else { return }
+        selectSlide(presentation.slides[nextIndex].id)
+    }
+
     func setSlideSelection(_ ids: Set<String>) {
         let living = ids.filter { id in presentation.slides.contains { $0.id == id } }
         if let current = selectedSlideID, living.contains(current) {
