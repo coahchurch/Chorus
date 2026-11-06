@@ -11,8 +11,28 @@ struct SongClipboardImportSheet: View {
     @State private var lyrics = ""
     @State private var transliteration = ""
     @State private var errorMessage: String?
+    @State private var editingSlides = false
 
     var body: some View {
+        if editingSlides {
+            ReflowSheet(
+                importingSongNamed: name.isEmpty ? "Untitled Song" : name,
+                primaryText: lyrics,
+                transliteration: transliteration,
+                onCancel: { editingSlides = false }
+            ) { songName, primaryText, transliterationText, linesPerSlide in
+                let id = model.createSong(
+                    name: songName, primaryText: primaryText,
+                    transliterationText: transliterationText, linesPerSlide: linesPerSlide
+                )
+                onImported(id)
+            }
+        } else {
+            importForm
+        }
+    }
+
+    private var importForm: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Import Lyrics from Clipboard")
                 .font(.headline)
@@ -37,7 +57,7 @@ struct SongClipboardImportSheet: View {
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("Import Song", action: importSong)
+                Button("Continue to Reflow") { editingSlides = true }
                     .keyboardShortcut(.defaultAction)
                     .disabled(lyrics.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
@@ -61,15 +81,4 @@ struct SongClipboardImportSheet: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func importSong() {
-        let fallback = "Untitled Song"
-        let song = SongLyrics.pasted(
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? fallback : name,
-            primaryText: lyrics,
-            transliterationText: transliteration
-        )
-        let id = model.createSong(song)
-        dismiss()
-        onImported(id)
-    }
 }

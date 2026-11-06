@@ -8,13 +8,22 @@ public struct TeamCloudItem: Equatable, Sendable, Identifiable {
     public var folder: String
 
     public var updatedAt: Date?
+    public var tag: String
 
-    public init(kind: DocumentKind, id: String, name: String, folder: String, updatedAt: Date? = nil) {
+    public init(
+        kind: DocumentKind, id: String, name: String, folder: String,
+        updatedAt: Date? = nil, tag: String = ""
+    ) {
         self.kind = kind
         self.id = id
         self.name = name
         self.folder = folder
         self.updatedAt = updatedAt
+        self.tag = tag
+    }
+
+    public var isSongPresentation: Bool {
+        kind == .presentation && tag == "song"
     }
 }
 

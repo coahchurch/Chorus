@@ -374,15 +374,20 @@ extension AppModel {
                 return song
             }
 
+            let presentations = lyricSongs.map { songPresentation($0) }
             do {
-                _ = try await createInDrive(lyricSongs).value
-                result.ids.append(contentsOf: lyricSongs.map(\.id))
+                _ = try await createInDrive(presentations).value
+                result.ids.append(contentsOf: presentations.map(\.id))
             } catch {
                 let writeError = error.localizedDescription
                 do {
                     let snapshot = try await client.settledSnapshot()
-                    let persistedIDs = Set(snapshot.entries(of: .song).map(\.id))
-                    for song in lyricSongs {
+                    let persistedIDs = Set(
+                        snapshot.entries(of: .presentation)
+                            .filter(\.isSongPresentation)
+                            .map(\.id)
+                    )
+                    for song in presentations {
                         if persistedIDs.contains(song.id) {
                             result.ids.append(song.id)
                         } else {

@@ -8,6 +8,7 @@ import Foundation
     public enum EngineError: Error, Equatable {
 
         case notBootstrapped
+        case invalidSongMigration
     }
 
     public struct Start: Sendable {
@@ -109,6 +110,46 @@ import Foundation
         try publishing {
             try persist(try made(value, seed: seed), origin: origin)
             try home(area, key: SyncLedger.Key(kind: E.documentKind, id: value.id))
+        }
+    }
+
+    @discardableResult
+    public func migrateSongLyrics(
+        _ source: SongLyrics?, to presentation: Presentation, area: LibraryArea?
+    ) throws -> LibraryBatch {
+        guard presentation.presentationKind == .song,
+              source == nil || source?.id == presentation.id
+        else { throw EngineError.invalidSongMigration }
+
+        return try publishing {
+            let (store, index) = try opened()
+            let oldKey = SyncLedger.Key(kind: .song, id: presentation.id)
+            let newKey = SyncLedger.Key(kind: .presentation, id: presentation.id)
+            let oldArea = mirror.area(kind: .song, id: presentation.id) ?? area
+            let document = try made(presentation, seed: nil)
+
+            try store.save(document)
+            let syncedUnder = namespace(of: oldKey)
+            if store.exists(kind: .song, id: presentation.id) {
+                try store.delete(kind: .song, id: presentation.id)
+            }
+            replicas.remove(kind: .song, id: presentation.id)
+            valueCache.remove(oldKey)
+            pendingChanges.append(DocumentChange(
+                kind: .song, id: presentation.id, origin: .deleted, value: nil,
+                syncedUnder: syncedUnder
+            ))
+            pendingSidecar = true
+            try index.removeSyncEntry(kind: .song, id: presentation.id)
+            sync.remove(oldKey)
+            recordedHeads[oldKey] = nil
+
+            try persist(document, origin: .local)
+            if let oldArea {
+                try recordArea(oldArea, key: newKey, origin: .landed)
+            }
+            try index.removeArea(kind: .song, id: presentation.id)
+            mirror.removeArea(kind: .song, id: presentation.id)
         }
     }
 
@@ -621,10 +662,10 @@ import Foundation
             try index.upsert(
                 id: value.id, kind: key.kind, subkind: value.indexSubkind, name: value.name,
                 text: value.indexText, updatedAt: updatedAt, ccli: value.indexCCLI, folderId: value.indexFolderId,
-                origin: value.indexOrigin)
+                origin: value.indexOrigin, tag: value.indexTag)
             mirror.upsert(
                 id: value.id, kind: key.kind, subkind: value.indexSubkind, name: value.name, updatedAt: updatedAt,
-                origin: value.indexOrigin)
+                origin: value.indexOrigin, tag: value.indexTag)
         }
         if let service = value as? Service {
             for use in Library.usageStamps(of: service) {

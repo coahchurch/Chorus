@@ -74,7 +74,8 @@ import os
             text: document.value.indexText,
             ccli: document.value.indexCCLI,
             folderId: document.value.indexFolderId,
-            origin: document.value.indexOrigin
+            origin: document.value.indexOrigin,
+            tag: document.value.indexTag
         )
         didSave?(Entity.documentKind, document.value.id)
     }
@@ -130,7 +131,7 @@ import os
                     subkind: value.indexSubkind, name: value.name,
                     text: value.indexText, updatedAt: modified ?? Date(),
                     ccli: value.indexCCLI, folderId: value.indexFolderId,
-                    origin: value.indexOrigin
+                    origin: value.indexOrigin, tag: value.indexTag
                 )
             }
         }

@@ -1991,10 +1991,14 @@ final class SlideEditorModel {
         ChordProExport.reflowSeed(for: presentation)
     }
 
-    func applyReflow(text: String, linesPerSlide: Int) {
+    func applyReflow(text: String, transliteration: String? = nil, linesPerSlide: Int) {
         guard !isThemeEditor else { return }
+        let isSong = presentation.presentationKind == .song
+        let parsed = isSong
+            ? Reflow.parsePaired(text, transliteration: transliteration ?? "", linesPerSlide: linesPerSlide)
+            : Reflow.parse(text, linesPerSlide: linesPerSlide)
         let built = Reflow.build(
-            from: text, linesPerSlide: linesPerSlide,
+            parsed,
             themeSlideName: Reflow.lyricDesign(of: presentation.slides))
         guard !built.slides.isEmpty else { return }
         selectedObjectIDs = []
@@ -2008,6 +2012,11 @@ final class SlideEditorModel {
             presentation.arrangements = nil
             presentation.defaultArrangementId = nil
             presentation.reflowSource = text
+            if isSong {
+                let source = transliteration ?? ""
+                presentation.transliterationSource =
+                    source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : source
+            }
         }
         if let first = presentation.slides.first { selectSlide(first.id) }
     }

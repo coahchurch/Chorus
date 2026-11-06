@@ -54,7 +54,9 @@ enum EditContext: String, CaseIterable {
         model.selectedSection = section
         if let id = model.selectedEntryID,
            let entry = model.indexEntry(id),
-           entry.kind != section.kind {
+           (entry.kind != section.kind
+            || (section == .presentations && entry.isSongPresentation)
+            || (section == .songs && entry.kind == .presentation && !entry.isSongPresentation)) {
             model.selectedEntryID = nil
         }
     }
@@ -255,6 +257,60 @@ struct ViewCommands: Commands {
                 openWindow(id: "serviceControls")
             }
             .disabled(runOnly)
+        }
+    }
+}
+
+private struct SongMigrationView: View {
+    let model: AppModel
+    let render: RenderContext?
+    let songID: String
+
+    @State private var failure: String?
+    @State private var retry = 0
+    @State private var didMigrate = false
+
+    var body: some View {
+        Group {
+            if didMigrate {
+                SlideEditorView(
+                    appModel: model, render: render,
+                    presentationID: songID
+                )
+            } else {
+                VStack(spacing: 12) {
+                    if let failure {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                        Text("Could not prepare song for slide editing")
+                            .font(.headline)
+                        Text(failure)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                        Button("Retry") {
+                            self.failure = nil
+                            retry += 1
+                        }
+                    } else {
+                        ProgressView()
+                        Text("Preparing song for slide editing…")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .task(id: retry) {
+            guard !didMigrate else { return }
+            do {
+                try await model.migrateSongForSlideEditor(songID)
+                didMigrate = true
+            } catch {
+                failure = error.localizedDescription
+            }
         }
     }
 }
@@ -1606,7 +1662,7 @@ struct ShellView: View {
 
                 .id("\(entry.id)::\(model.importReplaceVersion)")
             case .song:
-                SongEditorView(model: model, songID: entry.id)
+                SongMigrationView(model: model, render: render, songID: entry.id)
                     .id(entry.id)
             case .service:
 
@@ -1639,7 +1695,8 @@ struct ShellView: View {
         else { return }
         if let entry = model.indexEntry(item.refId) {
             switch entry.kind {
-            case .presentation: model.selectedSection = .presentations
+            case .presentation:
+                model.selectedSection = entry.isSongPresentation ? .songs : .presentations
             case .song: model.selectedSection = .songs
             case .media: model.selectedSection = .media
             default: break

@@ -1009,6 +1009,9 @@ public struct Presentation: Codable, Sendable, Equatable, Identifiable {
     public var arrangements: [Arrangement]?
     public var defaultArrangementId: String?
     public var reflowSource: String?
+    public var transliterationSource: String?
+    public var primaryLanguage: String?
+    public var songTempoBPM: Double?
     public var ccli: CCLIInfo?
     public var chordProSource: String?
     public var musicKey: String?
@@ -1020,7 +1023,7 @@ public struct Presentation: Codable, Sendable, Equatable, Identifiable {
     public var songMap: SongMap?
     public var tags: [String]?
 
-    public init(id: String, name: String, presentationKind: PresentationKind, themeId: String, folder: String? = nil, folderId: String? = nil, slides: [Slide], canvasWidth: Int? = nil, canvasHeight: Int? = nil, background: CueMedia? = nil, backgroundFill: ObjectFill? = nil, sections: [PresentationSection]? = nil, arrangements: [Arrangement]? = nil, defaultArrangementId: String? = nil, reflowSource: String? = nil, ccli: CCLIInfo? = nil, chordProSource: String? = nil, musicKey: String? = nil, autoAdvance: AutoAdvance? = nil, transition: Transition? = nil, displayKey: String? = nil, origin: PresentationOrigin? = nil, timelines: [PresentationTimeline]? = nil, songMap: SongMap? = nil, tags: [String]? = nil) {
+    public init(id: String, name: String, presentationKind: PresentationKind, themeId: String, folder: String? = nil, folderId: String? = nil, slides: [Slide], canvasWidth: Int? = nil, canvasHeight: Int? = nil, background: CueMedia? = nil, backgroundFill: ObjectFill? = nil, sections: [PresentationSection]? = nil, arrangements: [Arrangement]? = nil, defaultArrangementId: String? = nil, reflowSource: String? = nil, transliterationSource: String? = nil, primaryLanguage: String? = nil, songTempoBPM: Double? = nil, ccli: CCLIInfo? = nil, chordProSource: String? = nil, musicKey: String? = nil, autoAdvance: AutoAdvance? = nil, transition: Transition? = nil, displayKey: String? = nil, origin: PresentationOrigin? = nil, timelines: [PresentationTimeline]? = nil, songMap: SongMap? = nil, tags: [String]? = nil) {
         self.id = id
         self.name = name
         self.presentationKind = presentationKind
@@ -1036,6 +1039,9 @@ public struct Presentation: Codable, Sendable, Equatable, Identifiable {
         self.arrangements = arrangements
         self.defaultArrangementId = defaultArrangementId
         self.reflowSource = reflowSource
+        self.transliterationSource = transliterationSource
+        self.primaryLanguage = primaryLanguage
+        self.songTempoBPM = songTempoBPM
         self.ccli = ccli
         self.chordProSource = chordProSource
         self.musicKey = musicKey

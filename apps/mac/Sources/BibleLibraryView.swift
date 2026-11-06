@@ -91,7 +91,6 @@ final class BibleLibraryStore {
     private(set) var importing = false
     private(set) var importProgress = 0
     private(set) var importTotal = 0
-
     private(set) var hasLoaded = false
     private var loadTask: Task<Void, Never>?
     private let folderURL: URL
@@ -162,6 +161,34 @@ final class BibleLibraryStore {
         errors = []
     }
 
+    func renameVersion(_ id: String, to name: String) async {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty,
+              var version = versions.first(where: { $0.id == id })
+        else { return }
+        version.name = trimmedName
+        do {
+            try await save(version)
+        } catch {
+            reportError("Could not rename \(version.name): \(error.localizedDescription)")
+        }
+    }
+
+    func deleteVersion(_ id: String) async {
+        guard let version = versions.first(where: { $0.id == id }) else { return }
+        do {
+            try await Task.detached(priority: .utility) { [folderURL] in
+                try FileManager.default.removeItem(
+                    at: folderURL.appendingPathComponent("\(id).json")
+                )
+            }.value
+            versions.removeAll { $0.id == id }
+            indexes.removeValue(forKey: id)
+        } catch {
+            reportError("Could not delete \(version.name): \(error.localizedDescription)")
+        }
+    }
+
     func importFiles(_ urls: [URL], versionName: String) async {
         importing = true
         importProgress = 0
@@ -187,14 +214,7 @@ final class BibleLibraryStore {
                     )
                     return (version, BibleVersionIndex(version))
                 }.value
-                try await Task.detached(priority: .utility) { [folderURL] in
-                    try FileManager.default.createDirectory(
-                        at: folderURL, withIntermediateDirectories: true
-                    )
-                    let payload = try JSONEncoder().encode(version)
-                    let destination = folderURL.appendingPathComponent("\(version.id).json")
-                    try payload.write(to: destination, options: .atomic)
-                }.value
+                try await persist(version)
                 versions.append(version)
                 indexes[version.id] = index
             } catch {
@@ -203,6 +223,31 @@ final class BibleLibraryStore {
             importProgress += 1
         }
         versions.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private func save(_ version: BibleXMLImporter.Version) async throws {
+        let index = await Task.detached(priority: .userInitiated) {
+            BibleVersionIndex(version)
+        }.value
+        try await persist(version)
+        if let index = versions.firstIndex(where: { $0.id == version.id }) {
+            versions[index] = version
+        } else {
+            versions.append(version)
+        }
+        indexes[version.id] = index
+        versions.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private func persist(_ version: BibleXMLImporter.Version) async throws {
+        try await Task.detached(priority: .utility) { [folderURL] in
+            try FileManager.default.createDirectory(
+                at: folderURL, withIntermediateDirectories: true
+            )
+            let payload = try JSONEncoder().encode(version)
+            let destination = folderURL.appendingPathComponent("\(version.id).json")
+            try payload.write(to: destination, options: .atomic)
+        }.value
     }
 }
 
@@ -214,6 +259,9 @@ struct BibleLibraryView: View {
     let onCreated: (String) -> Void
 
     @State private var showingFilePicker = false
+    @State private var showingImportName = false
+    @State private var showingVersionManager = false
+    @State private var pendingXMLURL: URL?
     @State private var versionName = ""
     @State private var englishVersionID = ""
     @State private var tamilVersionID = ""
@@ -289,14 +337,26 @@ struct BibleLibraryView: View {
         .fileImporter(
             isPresented: $showingFilePicker,
             allowedContentTypes: ["xml"].compactMap { UTType(filenameExtension: $0) },
-            allowsMultipleSelection: true
+            allowsMultipleSelection: false
         ) { result in
             switch result {
             case .success(let urls):
-                Task { await store.importFiles(urls, versionName: versionName) }
+                guard let url = urls.first else { return }
+                pendingXMLURL = url
+                versionName = url.deletingPathExtension().lastPathComponent
+                showingImportName = true
             case .failure(let error):
                 store.reportError(error.localizedDescription)
             }
+        }
+        .sheet(isPresented: $showingImportName) {
+            xmlImportNameSheet
+        }
+        .sheet(isPresented: $showingVersionManager) {
+            BibleVersionManagerSheet(store: store) {
+                showingFilePicker = true
+            }
+            .frame(minWidth: 620, minHeight: 520)
         }
         .sheet(isPresented: $showingLowerThirdControls) {
             lowerThirdControls
@@ -422,6 +482,11 @@ struct BibleLibraryView: View {
                 Label("Import Bible XML…", systemImage: "square.and.arrow.down")
             }
             .disabled(store.importing || store.loading)
+            Button {
+                showingVersionManager = true
+            } label: {
+                Label("Manage Bible Versions…", systemImage: "books.vertical")
+            }
             if store.importing {
                 ProgressView(value: Double(store.importProgress), total: Double(max(store.importTotal, 1)))
                 Text("Importing Bible \(store.importProgress) of \(store.importTotal)…")
@@ -431,6 +496,36 @@ struct BibleLibraryView: View {
             errorList
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var xmlImportNameSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Name Bible Version")
+                .font(.headline)
+            TextField("Version name", text: $versionName)
+                .textFieldStyle(.roundedBorder)
+            Text(pendingXMLURL?.lastPathComponent ?? "")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    pendingXMLURL = nil
+                    showingImportName = false
+                }
+                Button("Import") {
+                    guard let pendingXMLURL else { return }
+                    showingImportName = false
+                    Task { await store.importFiles([pendingXMLURL], versionName: versionName) }
+                    self.pendingXMLURL = nil
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(versionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 380)
     }
 
     private var versionControls: some View {
@@ -494,6 +589,9 @@ struct BibleLibraryView: View {
                     showingFilePicker = true
                 }
                 .disabled(store.importing || store.loading)
+                Button("Manage Bible Versions…", systemImage: "books.vertical") {
+                    showingVersionManager = true
+                }
                 Divider()
                 if controls != nil, presets != nil {
                     Divider()
@@ -1107,5 +1205,127 @@ struct BibleLibraryView: View {
             "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
         ]
         return String(String(number).map { superscriptDigits[$0] ?? $0 })
+    }
+}
+
+private struct BibleVersionManagerSheet: View {
+    let store: BibleLibraryStore
+    let onImportXML: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var editedNames: [String: String] = [:]
+    @State private var deleteVersionID: String?
+    @State private var showingDeleteConfirmation = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Manage Bible Versions")
+                    .font(.title3.weight(.semibold))
+                Spacer()
+                Button("Import XML…", systemImage: "square.and.arrow.down") {
+                    dismiss()
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(300))
+                        onImportXML()
+                    }
+                }
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+            }
+            .padding(16)
+
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    savedVersionsSection
+                    ForEach(store.errors, id: \.self) { error in
+                        Label(error, systemImage: "exclamationmark.triangle")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .textSelection(.enabled)
+                    }
+                }
+                .padding(16)
+            }
+        }
+        .background(Color.basePlane)
+        .alert("Delete Bible Version?", isPresented: $showingDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                guard let deleteVersionID else { return }
+                Task { await store.deleteVersion(deleteVersionID) }
+                self.deleteVersionID = nil
+            }
+            Button("Cancel", role: .cancel) {
+                deleteVersionID = nil
+            }
+        } message: {
+            let version = store.versions.first { $0.id == deleteVersionID }
+            Text("Delete \(version?.name ?? "this version") from this Mac? This cannot be undone.")
+        }
+    }
+
+    private var savedVersionsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Saved Versions", systemImage: "books.vertical")
+                    .font(.headline)
+                Spacer()
+                Text("\(store.versions.count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if store.versions.isEmpty {
+                Text("No imported versions yet.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(store.versions) { version in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        TextField(
+                            "Version name",
+                            text: Binding(
+                                get: { editedNames[version.id] ?? version.name },
+                                set: { editedNames[version.id] = $0 }
+                            )
+                        )
+                        .textFieldStyle(.roundedBorder)
+                        Button("Rename") {
+                            Task {
+                                await store.renameVersion(
+                                    version.id,
+                                    to: editedNames[version.id] ?? version.name
+                                )
+                                editedNames[version.id] = nil
+                            }
+                        }
+                        .disabled(
+                            (editedNames[version.id] ?? version.name)
+                                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        )
+                        Button(role: .destructive) {
+                            deleteVersionID = version.id
+                            showingDeleteConfirmation = true
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Delete \(version.name)")
+                    }
+                    Text(version.sourceName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let copyright = version.copyright, !copyright.isEmpty {
+                        Text(copyright)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+                .padding(10)
+                .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
+            }
+        }
     }
 }

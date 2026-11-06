@@ -42,6 +42,7 @@ struct LibrarySidebar: View {
     @State private var importingOpenLyrics = false
     @State private var importingSongClipboard = false
     @State private var importingOnlineLyrics = false
+    @State private var creatingScratchSong = false
     @State private var showingBible = false
     @State private var bibleStore = BibleLibraryStore()
     @State private var songReviewTarget: LibraryIndex.Entry?
@@ -173,6 +174,18 @@ struct LibrarySidebar: View {
         }
         .sheet(isPresented: $importingOnlineLyrics) {
             OnlineLyricsImportSheet(model: model, onImported: showImported)
+        }
+        .sheet(isPresented: $creatingScratchSong) {
+            ReflowSheet(
+                importingSongNamed: "Untitled Song",
+                onCancel: { creatingScratchSong = false }
+            ) { songName, primaryText, transliterationText, linesPerSlide in
+                let id = model.createSong(
+                    name: songName, primaryText: primaryText,
+                    transliterationText: transliterationText, linesPerSlide: linesPerSlide
+                )
+                showImported(id)
+            }
         }
         .sheet(item: $songReviewTarget) { entry in
             SongReviewView(model: model, presentationID: entry.id)
@@ -385,14 +398,9 @@ struct LibrarySidebar: View {
 
     @State private var searchHits: [LibraryIndex.Hit] = []
 
-    @State private var cloudSearchHits: [TeamCloudItem] = []
+    @State private var songFallbackHits: [LibraryIndex.Hit] = []
 
-    private func songNameMatchesSearch(_ name: String) -> Bool {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return false }
-        return name.localizedCaseInsensitiveContains(query)
-            || FuzzySearch.matches(query, in: name)
-    }
+    @State private var cloudSearchHits: [TeamCloudItem] = []
 
     private var headerRow: some View {
         HStack(spacing: 8) {
@@ -551,11 +559,8 @@ struct LibrarySidebar: View {
     private var searchResults: some View {
 
         let stems = TrackSets.stemIDs(model.trackSets)
-        let fallbackHits = model.entries(of: .song)
-            .filter { songNameMatchesSearch($0.name) }
-            .map { LibraryIndex.Hit(entry: $0, snippet: nil) }
         let allHits = Dictionary(
-            (searchHits + fallbackHits).map { ($0.entry.id, $0) },
+            (searchHits + songFallbackHits).map { ($0.entry.id, $0) },
             uniquingKeysWith: { first, _ in first }
         ).values
         let hits = allHits.filter { hit in
@@ -565,7 +570,13 @@ struct LibrarySidebar: View {
                 && model.showFiltersAdmit(id: hit.entry.id, kind: hit.entry.kind)
         }
         let cloudHits = cloudSearchHits.filter { item in
-            searchScopes.isEmpty || searchScopes.contains { $0.kind == item.kind }
+            searchScopes.isEmpty || searchScopes.contains { section in
+                switch section {
+                case .songs: item.kind == .song || item.isSongPresentation
+                case .presentations: item.kind == .presentation && !item.isSongPresentation
+                default: section.kind == item.kind
+                }
+            }
         }
         List(selection: $model.selectedEntryID) {
             ForEach(TeamDriveLogic.searchRows(hits: hits, cloud: cloudHits, query: searchText)) { row in
@@ -588,8 +599,40 @@ struct LibrarySidebar: View {
         .task(id: "\(model.teamCloudItems.count)|\(searchText)") {
             let query = searchText
             searchHits = []
+            songFallbackHits = []
             cloudSearchHits = []
-            let hits = await model.search(query)
+
+            let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedQuery.isEmpty else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(150))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, query == searchText else { return }
+
+            async let libraryHits = model.search(query)
+            let songEntries = model.entries(in: .songs)
+            let fallbackSearch = Task.detached(priority: .userInitiated) { () -> [LibraryIndex.Hit] in
+                var hits: [LibraryIndex.Hit] = []
+                for entry in songEntries {
+                    if Task.isCancelled { return [] }
+                    if entry.name.localizedCaseInsensitiveContains(trimmedQuery)
+                        || FuzzySearch.matches(trimmedQuery, in: entry.name) {
+                        hits.append(LibraryIndex.Hit(entry: entry, snippet: nil))
+                    }
+                }
+                return hits
+            }
+            let fallbackHits = await withTaskCancellationHandler {
+                await fallbackSearch.value
+            } onCancel: {
+                fallbackSearch.cancel()
+            }
+            guard !Task.isCancelled, query == searchText else { return }
+            songFallbackHits = fallbackHits
+
+            let hits = await libraryHits
             guard !Task.isCancelled, query == searchText else { return }
             searchHits = hits
             cloudSearchHits = model.cloudSearch(query)
@@ -1395,7 +1438,7 @@ struct LibrarySidebar: View {
 
     private func section(for entry: LibraryIndex.Entry) -> LibrarySection? {
         switch entry.kind {
-        case .presentation: .presentations
+        case .presentation: entry.isSongPresentation ? .songs : .presentations
         case .song: .songs
         case .media: .media
         case .audio: .audio
@@ -1517,7 +1560,7 @@ struct LibrarySidebar: View {
                             importingSongClipboard = true
                         }
                         Button("New Song from Scratch") {
-                            fileNewEntry(model.createEntity(in: .songs))
+                            creatingScratchSong = true
                         }
                         Button("Import from OpenLyrics") {
                             importingOpenLyrics = true

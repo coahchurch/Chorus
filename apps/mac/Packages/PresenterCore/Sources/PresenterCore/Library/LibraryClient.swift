@@ -118,6 +118,15 @@ import Foundation
     }
 
     @discardableResult
+    public func migrateSongLyrics(
+        _ source: SongLyrics?, to presentation: Presentation, area: LibraryArea?
+    ) -> Task<LibraryBatch, any Error> {
+        enqueue(nil) { [engine] in
+            try engine.migrateSongLyrics(source, to: presentation, area: area)
+        }
+    }
+
+    @discardableResult
     public func modify<E: DocumentEntity>(
         _ type: E.Type, id: String, _ mutate: @escaping @Sendable (inout E) throws -> Void
     ) -> Task<LibraryBatch, any Error> {

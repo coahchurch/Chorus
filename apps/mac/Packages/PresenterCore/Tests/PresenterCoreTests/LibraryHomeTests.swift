@@ -111,7 +111,7 @@ import Testing
             )
         }
         #expect(try body(of: "func createSong(_ song: SongLyrics) -> String {", in: app)
-            .contains("createInDrive(song)"))
+            .contains("createInDrive(songPresentation(song))"))
         #expect(try body(of: "func importFiles(", in: app, length: 4000)
             .contains("placement: placement ?? newPlacement"))
         #expect(try body(of: "func importPowerPoint(", in: app).contains("let placement = newPlacement"),

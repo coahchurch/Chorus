@@ -51,6 +51,7 @@ enum WindowBridge {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowObserver: NSObjectProtocol?
+    private var screenParametersObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
@@ -61,6 +62,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             queue: .main
         ) { [weak self] _ in
             self?.configureWindows()
+        }
+        screenParametersObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { scheduleMainWindowRecovery() }
+        }
+        MainActor.assumeIsolated {
+            scheduleMainWindowRecovery()
         }
     }
 
@@ -75,20 +86,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let windowObserver {
             NotificationCenter.default.removeObserver(windowObserver)
         }
+        if let screenParametersObserver {
+            NotificationCenter.default.removeObserver(screenParametersObserver)
+        }
     }
 
     func applicationShouldHandleReopen(
         _ sender: NSApplication, hasVisibleWindows flag: Bool
     ) -> Bool {
         MainActor.assumeIsolated {
-            if let main = NSApp.windows.first(where: {
-                $0.identifier?.rawValue.hasPrefix("main") == true
-            }) {
-                if main.isMiniaturized { main.deminiaturize(nil) }
-                main.makeKeyAndOrderFront(nil)
-            } else {
-                WindowBridge.openMain?()
-            }
+            scheduleMainWindowRecovery()
         }
         return true
     }
@@ -98,6 +105,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             PresentationFileOpener.open(urls)
         }
     }
+}
+
+@MainActor
+private func scheduleMainWindowRecovery(attempt: Int = 0) {
+    DispatchQueue.main.asyncAfter(deadline: .now() + (attempt == 0 ? 1 : 0.5)) {
+        MainActor.assumeIsolated {
+            guard !recoverMainWindow(), attempt < 20 else { return }
+            scheduleMainWindowRecovery(attempt: attempt + 1)
+        }
+    }
+}
+
+@MainActor
+@discardableResult
+private func recoverMainWindow() -> Bool {
+    let candidates = NSApp.windows.filter {
+        $0.identifier?.rawValue.hasPrefix("main") == true && $0.canBecomeMain
+    }
+    guard let main = candidates.first else {
+        if candidates.isEmpty {
+            let summary = NSApp.windows.prefix(8).map {
+                "\($0.identifier?.rawValue ?? "no-id") visible=\($0.isVisible) frame=\($0.frame)"
+            }.joined(separator: "; ")
+            DiagnosticsStore.shared.note("window.recovery", detail: "no main window; \(summary)")
+        }
+        WindowBridge.openMain?()
+        return false
+    }
+
+    guard let screen = NSScreen.main ?? NSScreen.screens.first else { return false }
+    let visibleFrame = screen.visibleFrame
+    if main.frame.height < 200
+        || main.frame.width < 600
+        || !NSScreen.screens.contains(where: { $0.frame.intersects(main.frame) }) {
+        main.setFrame(visibleFrame, display: true)
+    }
+    if main.isMiniaturized { main.deminiaturize(nil) }
+    NSApp.activate(ignoringOtherApps: true)
+    main.makeKeyAndOrderFront(nil)
+    DiagnosticsStore.shared.note(
+        "window.recovery",
+        detail: "showed main window at \(main.frame); screen \(screen.localizedName)")
+    return true
 }
 
 @main

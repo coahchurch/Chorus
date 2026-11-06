@@ -318,7 +318,7 @@ struct RunOrderList: View {
 
     private func insertPayload(_ payload: String, beforeItemID: String?) {
         let added: ServiceItem? = if !payload.hasPrefix("svc::"), let ref = model.indexEntry(payload),
-            let kind = ServiceRunOrder.itemKind(adding: ref.kind) {
+            let kind = ServiceRunOrder.itemKind(adding: ref) {
             ServiceItem(id: UUID().uuidString, itemKind: kind, name: ref.name, refId: payload)
         } else {
             nil

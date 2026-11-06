@@ -17,16 +17,18 @@ public enum BibleXMLImporter {
         public var name: String
         public var sourceName: String
         public var importedAt: Date
+        public var copyright: String?
         public var verses: [Verse]
 
         public init(
             id: String = UUID().uuidString, name: String, sourceName: String,
-            importedAt: Date = .now, verses: [Verse]
+            importedAt: Date = .now, copyright: String? = nil, verses: [Verse]
         ) {
             self.id = id
             self.name = name
             self.sourceName = sourceName
             self.importedAt = importedAt
+            self.copyright = copyright
             self.verses = verses
         }
 

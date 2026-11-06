@@ -84,6 +84,10 @@ public enum ServiceRunOrder {
         }
     }
 
+    public static func itemKind(adding entry: LibraryIndex.Entry) -> ServiceItemKind? {
+        entry.isSongPresentation ? .song : itemKind(adding: entry.kind)
+    }
+
     public static func sidebarRows(
         _ items: [ServiceItem], collapsedHeaders: Set<String>,
         timeHexId: String? = nil, order: [String]? = nil

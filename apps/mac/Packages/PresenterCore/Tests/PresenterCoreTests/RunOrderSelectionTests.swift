@@ -56,4 +56,8 @@ private let rows = [item("h1", .header), item("a"), item("b", .media), item("h2"
     #expect(ServiceRunOrder.itemKind(adding: .playlist) == .playlist)
     #expect(ServiceRunOrder.itemKind(adding: .theme) == nil)
     #expect(ServiceRunOrder.itemKind(adding: .service) == nil)
+    let song = LibraryIndex.Entry(
+        id: "song", kind: .presentation, subkind: "", name: "Song",
+        updatedAt: .distantPast, lastUsedAt: nil, tag: "song")
+    #expect(ServiceRunOrder.itemKind(adding: song) == .song)
 }

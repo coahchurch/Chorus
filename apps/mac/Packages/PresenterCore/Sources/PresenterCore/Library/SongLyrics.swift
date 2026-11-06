@@ -20,7 +20,6 @@ public struct SongLyricsPart: Codable, Equatable, Sendable, Identifiable {
 
     private static func cleaned(_ lines: [String]) -> [String] {
         lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
     }
 }
 
@@ -76,10 +75,16 @@ public struct SongLyrics: Codable, Equatable, Sendable, Identifiable {
         }.joined(separator: "\n\n")
     }
 
+    public var pairedPrimarySource: String {
+        parts.map { "{c: \($0.label)}\n" + $0.primaryLines.joined(separator: "\n") }
+            .joined(separator: "\n\n")
+    }
+
     public func presentation(
         linesPerSlide: Int = 2,
         themeId: String = "",
-        themeSlideName: String = "Lyrics"
+        themeSlideName: String = "Lyrics",
+        presentationID: String? = nil
     ) -> Presentation {
         let ccli = CCLIInfo(
             songNumber: ccliNumber,
@@ -91,23 +96,36 @@ public struct SongLyrics: Codable, Equatable, Sendable, Identifiable {
             },
             copyright: copyright
         )
-        var result = LyricTextImporter.makePresentation(
-            primaryText,
-            fallbackTitle: name,
-            id: "song-lyrics:\(id)",
-            themeId: themeId,
-            themeSlideName: themeSlideName,
-            linesPerSlide: linesPerSlide,
-            transliteration: transliterationText,
-            phraseAware: false
+        let pairedSource = transliterationText ?? ""
+        let built = Reflow.build(
+            Reflow.parsePaired(
+                pairedPrimarySource,
+                transliteration: pairedSource,
+                linesPerSlide: linesPerSlide
+            ),
+            themeSlideName: themeSlideName
         )
-        result.name = name
-        result.presentationKind = .song
-        result.arrangements = nil
-        result.defaultArrangementId = nil
-        result.ccli = ccli
-        result.musicKey = key
-        result.origin = PresentationOrigin(.madeHere, detail: "Song lyrics")
+        var slides = built.slides
+        if slides.isEmpty {
+            slides = [Slide(id: UUID().uuidString, name: "", objects: [])]
+        }
+        var result = Presentation(
+            id: presentationID ?? "song-lyrics:\(id)",
+            name: name,
+            presentationKind: .song,
+            themeId: themeId,
+            folder: folder,
+            folderId: folderId,
+            slides: slides,
+            sections: built.sections.isEmpty ? nil : built.sections,
+            reflowSource: pairedPrimarySource.isEmpty ? nil : pairedPrimarySource,
+            transliterationSource: pairedSource.isEmpty ? nil : pairedSource,
+            primaryLanguage: primaryLanguage,
+            songTempoBPM: tempo,
+            ccli: ccli,
+            musicKey: key,
+            origin: PresentationOrigin(.madeHere, detail: "Song lyrics")
+        )
         for slideIndex in result.slides.indices {
             let slideID = "\(result.id)|slide|\(slideIndex)"
             result.slides[slideIndex].id = slideID

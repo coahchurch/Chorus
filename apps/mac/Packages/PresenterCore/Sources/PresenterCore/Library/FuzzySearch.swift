@@ -61,7 +61,6 @@ public enum FuzzySearch {
             return 0.86
         }
 
-        let distance = levenshtein(query, candidate)
         let longest = max(query.count, candidate.count)
         guard longest > 0 else { return nil }
         let allowedDistance: Int
@@ -73,14 +72,16 @@ public enum FuzzySearch {
         default: allowedDistance = 4
         }
 
+        if abs(query.count - candidate.count) > allowedDistance {
+            return isFuzzySubsequence(query, candidate) ? 0.72 : nil
+        }
+
+        let distance = levenshtein(query, candidate)
         if distance > allowedDistance, hasAdjacentTransposition(query, candidate) {
             return 0.78
         }
         guard distance <= allowedDistance else {
-            if isFuzzySubsequence(query, candidate) {
-                return 0.72
-            }
-            return nil
+            return isFuzzySubsequence(query, candidate) ? 0.72 : nil
         }
         return 0.82 - Double(distance) / Double(max(longest, 1)) * 0.3
     }

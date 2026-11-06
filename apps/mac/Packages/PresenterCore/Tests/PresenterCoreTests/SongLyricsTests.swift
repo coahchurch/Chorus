@@ -34,9 +34,14 @@ struct SongLyricsTests {
         #expect(first.id == "song-lyrics:song-1")
         #expect(first.slides.map(\.id) == second.slides.map(\.id))
         #expect(first.slides.flatMap(\.objects).map(\.id) == second.slides.flatMap(\.objects).map(\.id))
+        #expect(first.sections?.map(\.name) == ["Verse 1"])
+        #expect(first.slides.allSatisfy { !$0.objects.isEmpty })
         #expect(first.arrangements == nil)
         #expect(first.ccli?.songNumber == 12345)
         #expect(first.musicKey == "D")
+        #expect(first.presentationKind == .song)
+        #expect(first.indexTag == "song")
+        #expect(first.transliterationSource?.contains("tamil ondru") == true)
         #expect(decoded.parts[0].primaryLines == ["தமிழ் ஒன்று", "தமிழ் இரண்டு"])
         #expect(decoded.parts[0].transliterationLines == ["tamil ondru", "tamil irandu"])
         #expect(decoded.folder == "Hymns")
@@ -44,6 +49,49 @@ struct SongLyricsTests {
         #expect(decoded.indexSubkind == "Hymns")
         #expect(decoded.indexFolderId == "hymns-folder")
         #expect(decoded == song)
+    }
+
+    @Test func pairedReflowKeepsBlankTranslationRowsAligned() {
+        let parsed = Reflow.parsePaired(
+            "{c: Verse 1}\nprimary one\nprimary two\nprimary three",
+            transliteration: "{c: Verse 1}\ntrans one\n\ntrans three",
+            linesPerSlide: 2
+        )
+
+        #expect(parsed.sections.map(\.name) == ["Verse 1"])
+        #expect(parsed.sections[0].slides == [
+            "primary one\nprimary two\n\ntrans one\n",
+            "primary three\n\ntrans three",
+        ])
+    }
+
+    @Test func songProjectionKeepsAnActualIntroButAddsNoBlankOpening() {
+        let song = SongLyrics(
+            name: "Song with Intro",
+            parts: [
+                SongLyricsPart(label: "Intro", primaryLines: ["Come and worship"]),
+                SongLyricsPart(label: "Verse 1", primaryLines: ["Amazing grace"]),
+            ]
+        )
+
+        let presentation = song.presentation()
+
+        #expect(presentation.sections?.map(\.name) == ["Intro", "Verse 1"])
+        #expect(presentation.slides.first?.objects.first?.text == "Come and worship")
+        #expect(presentation.slides.allSatisfy { !$0.objects.isEmpty })
+    }
+
+    @Test func pairedReflowKeepsUntranslatedSlidesCompact() {
+        let parsed = Reflow.parsePaired(
+            "{c: Verse 1}\nதமிழ் ஒன்று\nதமிழ் இரண்டு\nதமிழ் மூன்று\nதமிழ் நான்கு",
+            transliteration: "{c: Verse 1}\none\ntwo",
+            linesPerSlide: 2
+        )
+
+        #expect(parsed.sections[0].slides == [
+            "தமிழ் ஒன்று\nதமிழ் இரண்டு\n\none\ntwo",
+            "தமிழ் மூன்று\nதமிழ் நான்கு",
+        ])
     }
 
     @Test func presentationHonorsConfiguredMaximumLyricsPerSlide() {

@@ -178,10 +178,57 @@ private final class ActorPark: Sendable {
         #expect(unmoved.areaMoves.isEmpty, "an area it already has is no move")
         let back = try engine.setArea(.station, of: [keys[1]], origin: .landed)
         #expect(back.areaMoves == [AreaMove(kind: .presentation, id: "p2", from: .team, to: .station, origin: .landed)])
+    }
 
-        let removed = try engine.delete(kind: .presentation, id: "p1")
-        #expect(removed.snapshot.entry(id: "p1") == nil)
-        #expect(removed.snapshot.entries(of: .presentation).map(\.id) == ["p2"])
+    @LibraryActor @Test func migratingSongLyricsPreservesItsIdDataAndLibraryArea() throws {
+        let root = makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let engine = LibraryEngine(rootURL: root)
+        try engine.bootstrap()
+        let source = SongLyrics(
+            id: "legacy-song",
+            name: "Legacy Song",
+            author: "Author",
+            copyright: "2024 Publisher",
+            primaryLanguage: "ta",
+            key: "D",
+            tempo: 88,
+            ccliNumber: 123,
+            parts: [
+                SongLyricsPart(
+                    label: "Verse 1",
+                    primaryLines: ["தமிழ் ஒன்று", "தமிழ் இரண்டு"],
+                    transliterationLines: ["tamil one", "tamil two"]
+                ),
+            ],
+            folder: "Hymns",
+            folderId: "hymns"
+        )
+        _ = try engine.create(source, area: .team)
+
+        let presentation = source.presentation(presentationID: source.id)
+        let batch = try engine.migrateSongLyrics(source, to: presentation, area: .team)
+        let entry = try #require(batch.snapshot.entry(id: source.id))
+        let store = try Library(rootURL: root).store
+        let stored = try store.load(Presentation.self, id: source.id).value
+
+        #expect(batch.changes.map(\.kind) == [.song, .presentation])
+        #expect(batch.snapshot.entries(of: .song).isEmpty)
+        #expect(entry.kind == .presentation && entry.isSongPresentation)
+        #expect(batch.snapshot.area(kind: .presentation, id: source.id) == .team)
+        #expect(stored.name == source.name)
+        #expect(stored.ccli?.author == source.author)
+        #expect(stored.ccli?.copyright == source.copyright)
+        #expect(stored.primaryLanguage == source.primaryLanguage)
+        #expect(stored.songTempoBPM == source.tempo)
+        #expect(stored.musicKey == source.key)
+        #expect(stored.folder == source.folder && stored.folderId == source.folderId)
+        #expect(stored.transliterationSource?.contains("tamil one") == true)
+        #expect(!store.exists(kind: .song, id: source.id))
+
+        let removed = try engine.delete(kind: .presentation, id: source.id)
+        #expect(removed.snapshot.entry(id: source.id) == nil)
+        #expect(removed.snapshot.entries(of: .presentation).isEmpty)
         #expect(removed.snapshot == (try sqlSnapshot(root, generation: removed.snapshot.generation)))
         #expect(engine.snapshot == removed.snapshot)
     }

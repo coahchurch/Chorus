@@ -102,7 +102,7 @@ extension LibrarySort {
 
 public enum UpcomingUse {
 
-    public static let kinds: Set<DocumentKind> = [.service, .presentation, .media, .audio]
+    public static let kinds: Set<DocumentKind> = [.service, .presentation, .song, .media, .audio]
 
     public static func services(_ entries: [LibraryIndex.Entry], today: Date, calendar: Calendar = .current) -> [String] {
         let start = calendar.startOfDay(for: today)

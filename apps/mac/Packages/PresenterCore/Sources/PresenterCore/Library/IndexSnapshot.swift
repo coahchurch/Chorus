@@ -46,7 +46,7 @@ public struct IndexSnapshot: Sendable, Equatable {
                 guard let theirs = other.byKind[kind], theirs.count == rows.count else { return false }
                 return zip(rows, theirs).allSatisfy { mine, theirs in
                     mine.id == theirs.id && mine.subkind == theirs.subkind && mine.name == theirs.name
-                        && mine.lastUsedAt == theirs.lastUsedAt
+                        && mine.lastUsedAt == theirs.lastUsedAt && mine.tag == theirs.tag
                 }
             }
     }

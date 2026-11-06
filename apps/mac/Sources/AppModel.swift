@@ -31,7 +31,7 @@ enum LibrarySection: String, CaseIterable, Identifiable {
         case .overlays: .overlay
         case .media, .background: .media
         case .audio: .audio
-        case .songs: .song
+        case .songs: .presentation
         case .themes: .theme
         case .confidence: .confidenceLayout
         }
@@ -150,7 +150,9 @@ final class AppModel {
         guard selectedEntryID == nil, let id = stashedEditorEntryID,
               let entry = libraryEntry(id)
         else { return }
-        if let section = LibrarySection.allCases.first(where: { $0.kind == entry.kind }) {
+        if entry.isSongPresentation {
+            selectedSection = .songs
+        } else if let section = LibrarySection.allCases.first(where: { $0.kind == entry.kind }) {
             selectedSection = section
         }
         selectedEntryID = id
@@ -232,7 +234,11 @@ final class AppModel {
         decks.pin(ResidentDecks.liveSet(runOfShow: run, onAir: onAirDeckID))
         client.warmLive(decks.pinned)
         for id in Set(run.filter { $0.itemKind == .song }.map(\.refId)) {
-            requestWarmSong(id)
+            if indexEntry(id)?.kind == .presentation {
+                requestWarm(id)
+            } else {
+                requestWarmSong(id)
+            }
         }
     }
 
@@ -385,6 +391,7 @@ final class AppModel {
 
     @LibraryActor private static func prepareLibrary(_ prepared: Library, rootURL root: URL) throws {
         try migrateSongsToLyricsFolder(prepared, rootURL: root)
+        try removeGeneratedSongIntroSlides(prepared, rootURL: root)
         try migrateMediaObjectsToShapes(prepared, rootURL: root)
         try migrateAnimationVocabulary(prepared, rootURL: root)
         try migrateCrossfadeDefaults(prepared, rootURL: root)
@@ -392,10 +399,21 @@ final class AppModel {
         try backfillContentIndex(prepared, rootURL: root)
         try backfillCCLIIndex(prepared, rootURL: root)
         try backfillOriginIndex(prepared, rootURL: root)
+        try backfillPresentationKindIndex(prepared, rootURL: root)
         try seedConfidenceStarters(prepared, rootURL: root)
         try seedChordsStarter(prepared, rootURL: root)
         try seedStarterPacks(prepared, rootURL: root)
         try seedUsageHistory(prepared, rootURL: root)
+    }
+
+    @LibraryActor private static func removeGeneratedSongIntroSlides(
+        _ prepared: Library, rootURL: URL
+    ) throws {
+        let marker = rootURL.appendingPathComponent(".removed-song-auto-intros-v1")
+        guard !FileManager.default.fileExists(atPath: marker.path) else { return }
+        let removed = try prepared.removeGeneratedSongIntroSlides()
+        try Data("\(removed)".utf8).write(to: marker, options: .atomic)
+        DiagnosticsStore.shared.note("library.songIntro.migrated", detail: "\(removed)")
     }
 
     private func libraryOpened(rootURL root: URL) {
@@ -405,13 +423,51 @@ final class AppModel {
         needsOnboarding = Library.needsOnboarding(rootURL: root, snapshot: client.snapshot)
 
         Task { [weak self] in
-            await self?.installBundledLibraryIfNeeded()
-            await self?.warmResidency()
+            guard let self else { return }
+            await self.installBundledLibraryIfNeeded()
+            await self.warmResidency()
+            self.isLibraryReady = true
+            let work = self.readyWork
+            self.readyWork = []
+            for item in work { item() }
         }
-        isLibraryReady = true
-        let work = readyWork
-        readyWork = []
-        for item in work { item() }
+    }
+
+    func migrateSongForSlideEditor(_ id: String) async throws {
+        guard client.snapshot.entry(id: id)?.kind == .song else { return }
+        let area = client.snapshot.area(kind: .song, id: id)
+        let source: SongLyrics
+        do {
+            source = try await client.loadValue(SongLyrics.self, id: id)
+        } catch {
+            let sourceError = error
+            let presentation: Presentation
+            do { presentation = try await client.loadValue(Presentation.self, id: id) }
+            catch { throw sourceError }
+            guard presentation.presentationKind == .song else { throw sourceError }
+            _ = try await client.migrateSongLyrics(nil, to: presentation, area: area).value
+            return
+        }
+        let presentation = source.presentation(
+            themeId: lyricsThemeID,
+            themeSlideName: lyricsThemeSlideName,
+            presentationID: source.id
+        )
+        _ = try await client.migrateSongLyrics(source, to: presentation, area: area).value
+    }
+
+    @LibraryActor private static func backfillPresentationKindIndex(
+        _ prepared: Library, rootURL: URL
+    ) throws {
+        let marker = rootURL.appendingPathComponent(".reindexed-presentation-kind-v1")
+        guard !FileManager.default.fileExists(atPath: marker.path) else { return }
+        var tags: [String: String] = [:]
+        for id in try prepared.store.ids(of: .presentation) {
+            let presentation = try prepared.store.load(Presentation.self, id: id).value
+            tags[id] = presentation.indexTag
+        }
+        try prepared.index.updateTags(tags, kind: .presentation)
+        FileManager.default.createFile(atPath: marker.path, contents: nil)
     }
 
     private func installBundledLibraryIfNeeded() async {
@@ -422,7 +478,8 @@ final class AppModel {
               files.fileExists(atPath: bundleURL.appendingPathComponent("manifest.json").path)
         else { return }
 
-        if !client.snapshot.entries(of: .song).isEmpty {
+        if !client.snapshot.entries(of: .song).isEmpty
+            || client.snapshot.entries(of: .presentation).contains(where: \.isSongPresentation) {
             bundledLibraryPending = true
             return
         }
@@ -496,7 +553,7 @@ final class AppModel {
             .map { service in
                 runOfShow(service).filter { $0.itemKind == .song }.map(\.refId)
             } ?? []
-        for id in songIDs {
+        for id in songIDs where indexEntry(id)?.kind == .song {
             _ = await loadSong(id)
         }
     }
@@ -696,7 +753,19 @@ final class AppModel {
     }
 
     func entries(in section: LibrarySection) -> [LibraryIndex.Entry] {
-        Self.inSectionOrder(withoutStems(listedSnapshot.entries(of: section.kind), section), section)
+        Self.inSectionOrder(withoutStems(sectionEntries(in: section), section), section)
+    }
+
+    private func sectionEntries(in section: LibrarySection) -> [LibraryIndex.Entry] {
+        switch section {
+        case .presentations:
+            listedSnapshot.entries(of: .presentation).filter { !$0.isSongPresentation }
+        case .songs:
+            listedSnapshot.entries(of: .presentation).filter(\.isSongPresentation)
+                + listedSnapshot.entries(of: .song)
+        default:
+            listedSnapshot.entries(of: section.kind)
+        }
     }
 
     private func withoutStems(_ entries: [LibraryIndex.Entry], _ section: LibrarySection) -> [LibraryIndex.Entry] {
@@ -865,7 +934,7 @@ final class AppModel {
             return cached.entries
         }
         let all = (librarySorts[section] ?? .name).ordered(
-            Self.inSectionOrder(withoutStems(listedSnapshot.entries(of: section.kind), section), section), addedAt: mediaAddedAt)
+            Self.inSectionOrder(withoutStems(sectionEntries(in: section), section), section), addedAt: mediaAddedAt)
         var entries = !isFiltered(section) ? all : all.filter { showFiltersAdmit(id: $0.id, kind: $0.kind) }
         if section == .media || section == .background {
             entries = entries.filter { entry in
@@ -888,7 +957,9 @@ final class AppModel {
 
     func cloudSearch(_ text: String) -> [TeamCloudItem] {
         TeamDriveLogic.cloudMatches(teamCloudItems, query: text).filter { item in
-            LibrarySection.libraryTabs.contains { $0.kind == item.kind } && showFiltersAdmit(id: item.id, kind: item.kind)
+            LibrarySection.libraryTabs.contains { section in
+                cloudItem(item, belongsTo: section)
+            } && showFiltersAdmit(id: item.id, kind: item.kind)
         }
     }
 
@@ -904,7 +975,20 @@ final class AppModel {
         let path = prefix.joined(separator: "/")
         let upcoming = upcomingOnly && UpcomingUse.kinds.contains(section.kind)
         return teamCloudItems.filter {
-            $0.kind == section.kind && TeamDriveLogic.isUnder($0.folder, prefix: path) && (!upcoming || upcomingIds.contains($0.id))
+            cloudItem($0, belongsTo: section)
+                && TeamDriveLogic.isUnder($0.folder, prefix: path)
+                && (!upcoming || upcomingIds.contains($0.id))
+        }
+    }
+
+    private func cloudItem(_ item: TeamCloudItem, belongsTo section: LibrarySection) -> Bool {
+        switch section {
+        case .songs:
+            item.kind == .song || item.isSongPresentation
+        case .presentations:
+            item.kind == .presentation && !item.isSongPresentation
+        default:
+            item.kind == section.kind
         }
     }
 
@@ -946,7 +1030,7 @@ final class AppModel {
     func driveFolders(in section: LibrarySection) -> [String] {
         LibraryBrowseLogic.folders(
             items: entries(in: section),
-            cloudFolders: teamCloudItems.filter { $0.kind == section.kind }.map(\.folder),
+            cloudFolders: teamCloudItems.filter { cloudItem($0, belongsTo: section) }.map(\.folder),
             empties: pendingFolders[section.rawValue] ?? [])
     }
 
@@ -1300,9 +1384,31 @@ final class AppModel {
     }
 
     @discardableResult
-    func createSong(_ song: SongLyrics) -> String {
-        createInDrive(song)
+    func createSong(_ song: SongLyrics, linesPerSlide: Int = 2) -> String {
+        createInDrive(songPresentation(song, linesPerSlide: linesPerSlide))
         return song.id
+    }
+
+    @discardableResult
+    func createSong(
+        name: String, primaryText: String, transliterationText: String = "",
+        linesPerSlide: Int = 2
+    ) -> String {
+        createSong(
+            SongLyrics.pasted(
+                name: name, primaryText: primaryText, transliterationText: transliterationText
+            ),
+            linesPerSlide: linesPerSlide
+        )
+    }
+
+    func songPresentation(_ song: SongLyrics, linesPerSlide: Int = 2) -> Presentation {
+        song.presentation(
+            linesPerSlide: linesPerSlide,
+            themeId: lyricsThemeID,
+            themeSlideName: lyricsThemeSlideName,
+            presentationID: song.id
+        )
     }
 
     @discardableResult
@@ -1637,7 +1743,7 @@ final class AppModel {
 
     @discardableResult
     func addServiceItem(_ serviceID: String, refID: String) -> Bool {
-        if let ref = libraryEntry(refID), let kind = ServiceRunOrder.itemKind(adding: ref.kind) {
+        if let ref = libraryEntry(refID), let kind = ServiceRunOrder.itemKind(adding: ref) {
             let item = ServiceItem(id: UUID().uuidString, itemKind: kind, name: ref.name, refId: refID)
             updateService(serviceID) { $0.items.append(item) }
             markUsed(refID)
@@ -1694,7 +1800,7 @@ final class AppModel {
 
     func insertServiceItem(_ serviceID: String, refID: String, at index: Int) {
         guard let ref = libraryEntry(refID),
-              let kind = ServiceRunOrder.itemKind(adding: ref.kind)
+              let kind = ServiceRunOrder.itemKind(adding: ref)
         else { return }
         let item = ServiceItem(id: UUID().uuidString, itemKind: kind, name: ref.name, refId: refID)
         updateService(serviceID) { $0.items.insert(item, at: min(max(index, 0), $0.items.count)) }

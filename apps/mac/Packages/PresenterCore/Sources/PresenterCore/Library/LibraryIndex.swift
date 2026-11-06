@@ -13,8 +13,16 @@ import SQLite3
         public let lastUsedAt: Date?
 
         public let origin: String
+        public let tag: String
 
-        public init(id: String, kind: DocumentKind, subkind: String, name: String, updatedAt: Date, lastUsedAt: Date?, origin: String = "") {
+        public var isSongPresentation: Bool {
+            kind == .presentation && tag == "song"
+        }
+
+        public init(
+            id: String, kind: DocumentKind, subkind: String, name: String,
+            updatedAt: Date, lastUsedAt: Date?, origin: String = "", tag: String = ""
+        ) {
             self.id = id
             self.kind = kind
             self.subkind = subkind
@@ -22,12 +30,13 @@ import SQLite3
             self.updatedAt = updatedAt
             self.lastUsedAt = lastUsedAt
             self.origin = origin
+            self.tag = tag
         }
 
         public init<E: DocumentEntity>(pending value: E, at date: Date = Date()) {
             self.init(
                 id: value.id, kind: E.documentKind, subkind: value.indexSubkind, name: value.name,
-                updatedAt: date, lastUsedAt: nil, origin: value.indexOrigin)
+                updatedAt: date, lastUsedAt: nil, origin: value.indexOrigin, tag: value.indexTag)
         }
     }
 
@@ -64,11 +73,13 @@ import SQLite3
                 kind TEXT NOT NULL,
                 subkind TEXT NOT NULL DEFAULT '',
                 name TEXT NOT NULL,
-                updated_at REAL NOT NULL
+                updated_at REAL NOT NULL,
+                tag TEXT NOT NULL DEFAULT ''
             )
             """)
 
         try addColumn("entities", "subkind", "TEXT NOT NULL DEFAULT ''")
+        try addColumn("entities", "tag", "TEXT NOT NULL DEFAULT ''")
 
         try addColumn("entities", "ccli_number", "INTEGER")
         try addColumn("entities", "ccli_title", "TEXT")
@@ -215,6 +226,13 @@ import SQLite3
         try run(
             "INSERT INTO library_area (kind, id, area) VALUES (?, ?, ?) ON CONFLICT(kind, id) DO UPDATE SET area = excluded.area",
             binds: [.text(kind.rawValue), .text(id), .text(area.rawValue)])
+    }
+
+    public func removeArea(kind: DocumentKind, id: String) throws {
+        writeGeneration += 1
+        try run(
+            "DELETE FROM library_area WHERE kind = ? AND id = ?",
+            binds: [.text(kind.rawValue), .text(id)])
     }
 
     public func allAreas() throws -> [String: LibraryArea] {
@@ -433,18 +451,18 @@ import SQLite3
     public func upsert(
         id: String, kind: DocumentKind, subkind: String = "", name: String,
         text: String = "", updatedAt: Date = Date(), ccli: IndexCCLI = .none, folderId: String = "",
-        origin: String = ""
+        origin: String = "", tag: String = ""
     ) throws {
         writeGeneration += 1
         try exec("BEGIN IMMEDIATE")
         do {
             try run(
-                "INSERT INTO entities (id, kind, subkind, name, updated_at, ccli_number, ccli_title, folder_id, origin) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                "INSERT INTO entities (id, kind, subkind, name, updated_at, ccli_number, ccli_title, folder_id, origin, tag) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
                     "ON CONFLICT(id) DO UPDATE SET kind = excluded.kind, subkind = excluded.subkind, " +
                     "name = excluded.name, updated_at = excluded.updated_at, " +
                     "ccli_number = excluded.ccli_number, ccli_title = excluded.ccli_title, folder_id = excluded.folder_id, " +
-                    "origin = excluded.origin",
+                    "origin = excluded.origin, tag = excluded.tag",
                 binds: [
                     .text(id), .text(kind.rawValue), .text(subkind), .text(name),
                     .real(updatedAt.timeIntervalSince1970),
@@ -452,6 +470,7 @@ import SQLite3
                     ccli.title.map(Bind.text) ?? .null,
                     .text(folderId),
                     .text(origin),
+                    .text(tag),
                 ]
             )
             try run("DELETE FROM entities_fts WHERE id = ?", binds: [.text(id)])
@@ -496,6 +515,24 @@ import SQLite3
         try exec("DELETE FROM entities_fts")
     }
 
+    public func updateTags(_ tags: [String: String], kind: DocumentKind) throws {
+        guard !tags.isEmpty else { return }
+        writeGeneration += 1
+        try exec("BEGIN IMMEDIATE")
+        do {
+            for (id, tag) in tags.sorted(by: { $0.key < $1.key }) {
+                try run(
+                    "UPDATE entities SET tag = ? WHERE id = ? AND kind = ?",
+                    binds: [.text(tag), .text(id), .text(kind.rawValue)]
+                )
+            }
+            try exec("COMMIT")
+        } catch {
+            try? exec("ROLLBACK")
+            throw error
+        }
+    }
+
     public func touchUsage(id: String, at date: Date = Date()) throws {
         writeGeneration += 1
         try run(
@@ -536,7 +573,7 @@ import SQLite3
     }
 
     private static let entryColumns =
-        "e.id, e.kind, e.subkind, e.name, e.updated_at, u.last_used_at, e.origin"
+        "e.id, e.kind, e.subkind, e.name, e.updated_at, u.last_used_at, e.origin, e.tag"
     private static let entryFrom = "FROM entities e LEFT JOIN usage u ON u.id = e.id"
 
     public struct MatchKey: Equatable, Sendable {
@@ -648,7 +685,7 @@ import SQLite3
                 let nameText = sqlite3_column_text(stmt, 3),
                 let kind = DocumentKind(rawValue: String(cString: kindText))
             else { continue }
-            let snippetText = sqlite3_column_text(stmt, 7).map { String(cString: $0) } ?? ""
+            let snippetText = sqlite3_column_text(stmt, 8).map { String(cString: $0) } ?? ""
             hits.append(Hit(
                 entry: Entry(
                     id: String(cString: idText),
@@ -658,7 +695,8 @@ import SQLite3
                     updatedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 4)),
                     lastUsedAt: sqlite3_column_type(stmt, 5) == SQLITE_NULL
                         ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 5)),
-                    origin: sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? ""
+                    origin: sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? "",
+                    tag: sqlite3_column_text(stmt, 7).map { String(cString: $0) } ?? ""
                 ),
                 snippet: snippetText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     ? nil : snippetText
@@ -667,7 +705,7 @@ import SQLite3
 
         var knownIDs = Set(hits.map(\.entry.id))
         let fuzzySQL =
-            "SELECT e.id, e.kind, e.subkind, e.name, e.updated_at, u.last_used_at, e.origin, f.content " +
+            "SELECT e.id, e.kind, e.subkind, e.name, e.updated_at, u.last_used_at, e.origin, e.tag, f.content " +
             "FROM entities e LEFT JOIN entities_fts f ON f.id = e.id " +
             "LEFT JOIN usage u ON u.id = e.id LIMIT 20000"
         let fuzzyStmt: OpaquePointer
@@ -695,7 +733,7 @@ import SQLite3
                 continue
             }
             let name = String(cString: nameText)
-            let content = sqlite3_column_text(fuzzyStmt, 7).map { String(cString: $0) } ?? ""
+            let content = sqlite3_column_text(fuzzyStmt, 8).map { String(cString: $0) } ?? ""
             guard FuzzySearch.matches(trimmed, in: name)
                 || FuzzySearch.matches(trimmed, in: content)
             else {
@@ -711,7 +749,8 @@ import SQLite3
                     updatedAt: Date(timeIntervalSince1970: sqlite3_column_double(fuzzyStmt, 4)),
                     lastUsedAt: sqlite3_column_type(fuzzyStmt, 5) == SQLITE_NULL
                         ? nil : Date(timeIntervalSince1970: sqlite3_column_double(fuzzyStmt, 5)),
-                    origin: sqlite3_column_text(fuzzyStmt, 6).map { String(cString: $0) } ?? ""
+                    origin: sqlite3_column_text(fuzzyStmt, 6).map { String(cString: $0) } ?? "",
+                    tag: sqlite3_column_text(fuzzyStmt, 7).map { String(cString: $0) } ?? ""
                 ),
                 snippet: nil
             ))
@@ -816,7 +855,8 @@ import SQLite3
                     updatedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 4)),
                     lastUsedAt: sqlite3_column_type(stmt, 5) == SQLITE_NULL
                         ? nil : Date(timeIntervalSince1970: sqlite3_column_double(stmt, 5)),
-                    origin: sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? ""
+                    origin: sqlite3_column_text(stmt, 6).map { String(cString: $0) } ?? "",
+                    tag: sqlite3_column_text(stmt, 7).map { String(cString: $0) } ?? ""
                 ))
             case SQLITE_DONE:
                 return results

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 149,
+  "schemaVersion": 151,
   "types": {
     "SlideObjectKind": {
       "kind": "enum",
@@ -1905,6 +1905,21 @@
           "optional": true
         },
         {
+          "name": "transliterationSource",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "primaryLanguage",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "songTempoBPM",
+          "type": "double",
+          "optional": true
+        },
+        {
           "name": "ccli",
           "type": "CCLIInfo",
           "optional": true
@@ -1947,6 +1962,11 @@
         {
           "name": "songMap",
           "type": "SongMap",
+          "optional": true
+        },
+        {
+          "name": "tags",
+          "type": "list:string",
           "optional": true
         }
       ]
@@ -2238,6 +2258,7 @@
       "kind": "enum",
       "cases": [
         "presentation",
+        "song",
         "media",
         "audio",
         "playlist",
@@ -3284,7 +3305,9 @@
         "enableAudioInput",
         "disableAudioInput",
         "fireAudio",
-        "fireAudioPlaylist"
+        "fireAudioPlaylist",
+        "startAirPlay",
+        "stopAirPlay"
       ]
     },
     "MIDIMessageKind": {
@@ -3466,6 +3489,11 @@
         {
           "name": "delaySeconds",
           "type": "double",
+          "optional": true
+        },
+        {
+          "name": "airPlayRole",
+          "type": "string",
           "optional": true
         }
       ]
@@ -4752,6 +4780,11 @@
         },
         {
           "name": "lyricsImportDesign",
+          "type": "string",
+          "optional": true
+        },
+        {
+          "name": "globalBackgroundId",
           "type": "string",
           "optional": true
         }

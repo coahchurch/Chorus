@@ -93,6 +93,8 @@ public protocol DocumentEntity: Codable, Equatable, Sendable, Identifiable where
     var indexFolderId: String { get }
 
     var indexOrigin: String { get }
+
+    var indexTag: String { get }
 }
 
 public struct IndexCCLI: Equatable, Sendable {
@@ -111,6 +113,7 @@ public extension DocumentEntity {
     var indexCCLI: IndexCCLI { .none }
     var indexFolderId: String { (self as? any TeamFolderedEntity)?.folderId ?? "" }
     var indexOrigin: String { "" }
+    var indexTag: String { "" }
 }
 
 extension Presentation: DocumentEntity {
@@ -119,6 +122,7 @@ extension Presentation: DocumentEntity {
     public var indexSubkind: String { folder ?? "" }
     public var indexCCLI: IndexCCLI { IndexCCLI(number: ccli?.songNumber, title: ccli?.songTitle) }
     public var indexOrigin: String { originLabel ?? "" }
+    public var indexTag: String { presentationKind == .song ? "song" : "" }
 
     public var indexText: String {
         (slides.flatMap { $0.objects.map(\.text) }.filter { !$0.isEmpty }

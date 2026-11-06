@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 150,
+  "schemaVersion": 151,
   "schemas": {
     "SlideObjectKind": {
       "type": "string",
@@ -1570,6 +1570,15 @@
         "reflowSource": {
           "type": "string"
         },
+        "transliterationSource": {
+          "type": "string"
+        },
+        "primaryLanguage": {
+          "type": "string"
+        },
+        "songTempoBPM": {
+          "type": "number"
+        },
         "ccli": {
           "$ref": "#/components/schemas/CCLIInfo"
         },
@@ -1879,6 +1888,7 @@
       "type": "string",
       "enum": [
         "presentation",
+        "song",
         "media",
         "audio",
         "playlist",
@@ -2200,75 +2210,6 @@
       "required": [
         "id",
         "name"
-      ]
-    },
-    "SongLyricsPart": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "label": {
-          "type": "string"
-        },
-        "primaryLines": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "transliterationLines": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "id",
-        "label",
-        "primaryLines",
-        "transliterationLines"
-      ]
-    },
-    "SongLyrics": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "author": {
-          "type": "string"
-        },
-        "copyright": {
-          "type": "string"
-        },
-        "primaryLanguage": {
-          "type": "string"
-        },
-        "key": {
-          "type": "string"
-        },
-        "tempo": {
-          "type": "number"
-        },
-        "ccliNumber": {
-          "type": "integer"
-        },
-        "parts": {
-          "type": "array",
-          "items": {
-            "$ref": "#/components/schemas/SongLyricsPart"
-          }
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "parts"
       ]
     },
     "Service": {
@@ -2859,7 +2800,9 @@
         "enableAudioInput",
         "disableAudioInput",
         "fireAudio",
-        "fireAudioPlaylist"
+        "fireAudioPlaylist",
+        "startAirPlay",
+        "stopAirPlay"
       ]
     },
     "MIDIMessageKind": {
@@ -2978,6 +2921,9 @@
         },
         "delaySeconds": {
           "type": "number"
+        },
+        "airPlayRole": {
+          "type": "string"
         }
       },
       "required": [
@@ -4149,6 +4095,9 @@
           "type": "string"
         },
         "lyricsImportDesign": {
+          "type": "string"
+        },
+        "globalBackgroundId": {
           "type": "string"
         }
       },

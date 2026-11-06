@@ -12,6 +12,13 @@ private func song(_ id: String, _ name: String) -> Presentation {
     Presentation(id: id, name: name, presentationKind: .song, themeId: "", slides: [])
 }
 
+@Test func fuzzySearchKeepsTyposAndSubsequenceMatches() {
+    #expect(FuzzySearch.matches("amzing", in: "Amazing Grace"))
+    #expect(FuzzySearch.matches("grcae", in: "Grace"))
+    #expect(FuzzySearch.matches("acb", in: "abc"))
+    #expect(FuzzySearch.matches("abcdefgh", in: "xyz") == false)
+}
+
 @LibraryActor @Test func confidenceStartersFillAFreshWorkspace() throws {
     let (library, root) = try makeLibrary()
     defer { try? FileManager.default.removeItem(at: root) }

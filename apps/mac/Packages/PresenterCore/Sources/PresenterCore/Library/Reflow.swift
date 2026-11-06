@@ -206,6 +206,93 @@ public enum Reflow {
         return result
     }
 
+    public static func parsePaired(
+        _ primary: String, transliteration: String, linesPerSlide: Int
+    ) -> ParseResult {
+        let primaryLines = LyricTextImporter.unified(primary).components(separatedBy: .newlines)
+        let transliterationLines = LyricTextImporter.unified(transliteration).components(separatedBy: .newlines)
+        let lineCount = max(primaryLines.count, transliterationLines.count)
+        let perSlide = max(1, linesPerSlide)
+        let hasTransliteration = transliterationLines.contains {
+            let line = $0.trimmingCharacters(in: .whitespaces)
+            return !line.isEmpty && pairedLabelName(of: line) == nil
+        }
+        var result = ParseResult()
+        var name: String?
+        var slides: [String] = []
+        var pendingPrimary: [String] = []
+        var pendingTransliteration: [String] = []
+        var verse = 0
+
+        func flushSlide() {
+            guard !pendingPrimary.isEmpty else { return }
+            let primaryText = pendingPrimary.joined(separator: "\n")
+            let transliterationText = pendingTransliteration.joined(separator: "\n")
+            let hasSlideTransliteration = hasTransliteration
+                && pendingTransliteration.contains { !$0.isEmpty }
+            if !hasSlideTransliteration {
+                slides.append(primaryText)
+            } else if primaryText.isEmpty {
+                slides.append(transliterationText)
+            } else {
+                slides.append(primaryText + "\n\n" + transliterationText)
+            }
+            pendingPrimary = []
+            pendingTransliteration = []
+        }
+
+        func closeSection() {
+            flushSlide()
+            guard let name else { return }
+            result.sections.append(ParsedSection(name: name, slides: slides))
+            result.order.append(result.sections.count - 1)
+            selfReset()
+        }
+
+        func selfReset() {
+            name = nil
+            slides = []
+        }
+
+        for index in 0..<lineCount {
+            let primaryLine = index < primaryLines.count
+                ? primaryLines[index].trimmingCharacters(in: .whitespaces) : ""
+            let transliterationLine = index < transliterationLines.count
+                ? transliterationLines[index].trimmingCharacters(in: .whitespaces) : ""
+            let primaryLabel = pairedLabelName(of: primaryLine)
+            let transliterationLabel = pairedLabelName(of: transliterationLine)
+            if let label = primaryLabel ?? transliterationLabel {
+                closeSection()
+                name = label
+            } else if primaryLine.isEmpty && transliterationLine.isEmpty {
+                flushSlide()
+            } else {
+                if name == nil {
+                    verse += 1
+                    name = "Verse \(verse)"
+                }
+                pendingPrimary.append(primaryLine)
+                pendingTransliteration.append(transliterationLine)
+                if pendingPrimary.count == perSlide { flushSlide() }
+            }
+        }
+        closeSection()
+        return result
+    }
+
+    private static func pairedLabelName(of line: String) -> String? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        if trimmed.hasPrefix("{"), trimmed.hasSuffix("}") {
+            let directive = trimmed.dropFirst().dropLast()
+            let fields = directive.split(separator: ":", maxSplits: 1)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            if fields.count == 2, ["c", "comment"].contains(fields[0].lowercased()) {
+                return labelName(of: fields[1]) ?? (fields[1].isEmpty ? nil : fields[1])
+            }
+        }
+        return labelName(of: trimmed)
+    }
+
     private static func chunk(stanzas: [[String]], perSlide: Int, phrased: Bool, casing: LyricPhrasing.Casing) -> [String] {
         stanzas.flatMap { stanza in
             if phrased {

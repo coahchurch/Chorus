@@ -130,20 +130,33 @@ struct ServicePreflightView: View {
                         ))
                     }
                 case .song:
-                    if let song = await model.loadSong(item.refId) {
-                        findings += SongLyricsAudit.inspect(song.presentation()).map { issue in
+                    do {
+                        let presentation = try await model.client.loadValue(
+                            Presentation.self, id: item.refId
+                        )
+                        findings += SongLyricsAudit.inspect(presentation).map { issue in
                             Finding(
                                 title: "\(item.name) — \(issue.slideName)",
                                 detail: issue.detail,
                                 isWarning: true
                             )
                         }
-                    } else {
-                        findings.append(Finding(
-                            title: "\(item.name): song unavailable",
-                            detail: "The lyric document could not be loaded.",
-                            isWarning: true
-                        ))
+                    } catch {
+                        if let song = await model.loadSong(item.refId) {
+                            findings += SongLyricsAudit.inspect(song.presentation()).map { issue in
+                                Finding(
+                                    title: "\(item.name) — \(issue.slideName)",
+                                    detail: issue.detail,
+                                    isWarning: true
+                                )
+                            }
+                        } else {
+                            findings.append(Finding(
+                                title: "\(item.name): song unavailable",
+                                detail: "The lyric document could not be loaded.",
+                                isWarning: true
+                            ))
+                        }
                     }
                 case .media:
                     do {

@@ -86,6 +86,27 @@ struct BibleXMLImporterTests {
         #expect(version.books == ["Genesis", "Exodus"])
     }
 
+    @Test func decodesSavedVersionsWithoutOptionalCopyrightMetadata() throws {
+        let version = BibleXMLImporter.Version(
+            id: "legacy", name: "English", sourceName: "english.xml",
+            verses: [
+                BibleXMLImporter.Verse(
+                    book: "Genesis", bookNumber: 1, chapter: 1, number: 1, text: "Verse"
+                ),
+            ]
+        )
+        let encoded = try JSONEncoder().encode(version)
+        var object = try #require(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+        object.removeValue(forKey: "copyright")
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+
+        let decoded = try JSONDecoder().decode(BibleXMLImporter.Version.self, from: legacyData)
+        #expect(decoded.copyright == nil)
+        #expect(decoded.verses == version.verses)
+    }
+
     @Test func searchesAcrossVersionsCaseInsensitivelyAndHonorsLimit() {
         let verse = BibleXMLImporter.Verse(
             book: "John", bookNumber: nil, chapter: 3, number: 16,

@@ -18,7 +18,7 @@ import Testing
         defer { try? FileManager.default.removeItem(at: root) }
 
         try index.upsert(id: "m2", kind: .media, subkind: "Loops", name: "Wave")
-        try index.upsert(id: "p1", kind: .presentation, subkind: "song", name: "Wave")
+        try index.upsert(id: "p1", kind: .presentation, subkind: "song", name: "Wave", tag: "song")
         try index.upsert(id: "m1", kind: .media, name: "Aurora")
         try index.upsert(id: "m3", kind: .media, name: "Wave")
         try index.upsert(id: "pl1", kind: .playlist, subkind: "media", name: "Walk-in")
@@ -33,6 +33,8 @@ import Testing
         #expect(snapshot.entries(of: .playlist, subkind: "media") == (try index.entries(of: .playlist, subkind: "media")))
         #expect(snapshot.entry(id: "m3") == (try index.entry(id: "m3")))
         #expect(snapshot.entry(id: "m3")?.lastUsedAt == Date(timeIntervalSince1970: 100))
+        #expect(snapshot.entry(id: "p1")?.isSongPresentation == true)
+        #expect(try index.entry(id: "p1")?.tag == "song")
         #expect(snapshot.entry(id: "gone") == nil)
         #expect(snapshot.count == 6)
         #expect(snapshot.generation == index.writeGeneration)
@@ -61,6 +63,21 @@ import Testing
         try index.markBlobUploaded("abc")
         _ = try index.entries(of: .media)
         #expect(!moved(), "the ledger, team folders, blobs and reads are not snapshot state")
+    }
+
+    @LibraryActor @Test func updatingTagsLeavesSearchEntriesUntouched() throws {
+        let (index, root) = try makeIndex()
+        defer { try? FileManager.default.removeItem(at: root) }
+        try index.upsert(id: "song", kind: .presentation, subkind: "Lyrics", name: "Amazing Grace", text: "lyrics")
+        try index.upsert(id: "deck", kind: .presentation, subkind: "Sermons", name: "Sunday")
+        let generation = index.writeGeneration
+
+        try index.updateTags(["song": "song", "deck": ""], kind: .presentation)
+
+        #expect(index.writeGeneration == generation + 1)
+        #expect(try index.entry(id: "song")?.tag == "song")
+        #expect(try index.entry(id: "deck")?.tag == "")
+        #expect(try index.search("lyrics").map(\.id) == ["song"])
     }
 
     @Test func theBrowserSplitsTeamKindsByAreaAndListsTheRestWhole() {
