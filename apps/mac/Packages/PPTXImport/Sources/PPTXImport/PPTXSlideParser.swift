@@ -547,6 +547,29 @@ enum PPTXSlideParser {
 
             let tile = element.first(local: "tile")
             let alpha = blip?.first(local: "alphaModFix")?.doubleAttr("amt").map { $0 / 100_000 } ?? 1
+            if let duotone = blip?.first(local: "duotone") {
+                let colorKinds = ["srgbClr", "schemeClr", "sysClr", "prstClr", "hslClr", "scrgbClr"]
+                let colors = (duotone.children ?? []).compactMap { $0 as? XMLElement }
+                    .filter { colorKinds.contains($0.localName ?? "") }
+                guard colors.count == 2,
+                      let dark = inheritance.colors.color(in: colors[0], phClr: phClr, warnings: &warnings),
+                      let light = inheritance.colors.color(in: colors[1], phClr: phClr, warnings: &warnings)
+                else {
+                    appendUnique("\(context) has an unresolved duotone image effect — original image used", &warnings)
+                    return tile != nil || alpha < 1
+                        ? .blipTiled(
+                            path: path, alpha: alpha,
+                            scaleX: (tile?.doubleAttr("sx") ?? 100_000) / 100_000,
+                            scaleY: (tile?.doubleAttr("sy") ?? 100_000) / 100_000,
+                            tiled: tile != nil)
+                        : .blip(path: path)
+                }
+                return .blipDuotone(
+                    path: path, darkHex: dark, lightHex: light, alpha: alpha,
+                    scaleX: (tile?.doubleAttr("sx") ?? 100_000) / 100_000,
+                    scaleY: (tile?.doubleAttr("sy") ?? 100_000) / 100_000,
+                    tiled: tile != nil)
+            }
             if tile != nil || alpha < 1 {
                 return .blipTiled(
                     path: path,

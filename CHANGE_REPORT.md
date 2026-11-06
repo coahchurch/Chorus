@@ -1029,3 +1029,13 @@ Validation:
 - Chorus Debug build succeeded.
 - All LocalAPI tests passed (32 tests), including remote-control and status-wire coverage.
 - `git diff --check` passed.
+
+## 45. Lazy-load large service flows (2026-11-06)
+
+Changed the continuous service view to lazily construct service cards, so large services no longer build every presentation card and its nearby slide thumbnails at once. Offscreen cards now release their cached scroll measurements when SwiftUI removes them, keeping scroll-follow calculations based on currently realized cards.
+
+Validation:
+
+- SlidesAcross tests passed (8 tests).
+- Chorus Debug build succeeded.
+- `git diff --check` passed.

@@ -16,6 +16,10 @@ enum TextureBakeKind: Sendable, Equatable {
 
     case texture(sourcePath: String, alpha: Double, scaleX: Double, scaleY: Double, tiled: Bool)
 
+    case duotone(
+        sourcePath: String, darkHex: String, lightHex: String,
+        alpha: Double, scaleX: Double, scaleY: Double, tiled: Bool)
+
     case pattern(preset: String, foregroundHex: String, backgroundHex: String)
 }
 
@@ -23,6 +27,17 @@ struct TextureBake: Sendable, Equatable {
     var placeholderID: String
     var kind: TextureBakeKind
 
+    var k: Double
+}
+
+struct DuotoneBakeKey: Hashable {
+    var path: String
+    var darkHex: String
+    var lightHex: String
+    var alpha: Double
+    var scaleX: Double
+    var scaleY: Double
+    var tiled: Bool
     var k: Double
 }
 
@@ -38,11 +53,32 @@ enum PPTXDocumentMapper {
         var wantByPath: [String: String] = [:]
         var nextWantIndex = 1
         var fontNameCache: [String: String] = [:]
+        var duotoneBakes: [DuotoneBakeKey: String] = [:]
 
         mutating func bake(_ bake: (String) -> TextureBake) -> String {
             let placeholder = PPTXDocumentMapper.placeholderPrefix + String(nextWantIndex)
             nextWantIndex += 1
             bakes.append(bake(placeholder))
+            return placeholder
+        }
+
+        mutating func duotoneBake(
+            path: String, darkHex: String, lightHex: String,
+            alpha: Double, scaleX: Double, scaleY: Double, tiled: Bool, k: Double
+        ) -> String {
+            let key = DuotoneBakeKey(
+                path: path, darkHex: darkHex, lightHex: lightHex,
+                alpha: alpha, scaleX: scaleX, scaleY: scaleY, tiled: tiled, k: k)
+            if let existing = duotoneBakes[key] { return existing }
+            let placeholder = bake { id in
+                TextureBake(
+                    placeholderID: id,
+                    kind: .duotone(
+                        sourcePath: path, darkHex: darkHex, lightHex: lightHex,
+                        alpha: alpha, scaleX: scaleX, scaleY: scaleY, tiled: tiled),
+                    k: k)
+            }
+            duotoneBakes[key] = placeholder
             return placeholder
         }
 
@@ -186,7 +222,7 @@ enum PPTXDocumentMapper {
         }
         switch slide.backgroundFill {
         case .solid?, .gradient?:
-            backgroundFill = objectFill(slide.backgroundFill, state: &state)
+            backgroundFill = objectFill(slide.backgroundFill, state: &state, k: k)
         case .blip(let path)?:
             objects.append(backdropObject(state.want(forPath: path)))
         case .blipTiled(let path, let alpha, let sx, let sy, let tiled)?:
@@ -197,6 +233,11 @@ enum PPTXDocumentMapper {
                     kind: .texture(sourcePath: path, alpha: alpha, scaleX: sx, scaleY: sy, tiled: tiled),
                     k: k)
             }
+            objects.append(backdropObject(placeholder))
+        case .blipDuotone(let path, let dark, let light, let alpha, let sx, let sy, let tiled)?:
+            let placeholder = state.duotoneBake(
+                path: path, darkHex: dark, lightHex: light,
+                alpha: alpha, scaleX: sx, scaleY: sy, tiled: tiled, k: k)
             objects.append(backdropObject(placeholder))
         case .pattern(let preset, let fg, let bg)?:
             if TextureBaker.structuralPatterns.contains(preset) {
@@ -320,7 +361,7 @@ enum PPTXDocumentMapper {
 
         case .shape:
             let text = shape.textBody?.plainText ?? ""
-            let fill = objectFill(shape.fill, state: &state)
+            let fill = objectFill(shape.fill, state: &state, k: k)
             let fillIsInk = fill.map { $0.fillKind != .none } ?? false
             let stroke = shape.stroke.map {
                 ObjectStroke(colorHex: rgba($0.colorHex), width: $0.widthEMU / 12700 * k, dashKind: $0.dash)
@@ -395,7 +436,7 @@ enum PPTXDocumentMapper {
         }
     }
 
-    private static func objectFill(_ fill: PPTXFill?, state: inout MapState) -> ObjectFill? {
+    private static func objectFill(_ fill: PPTXFill?, state: inout MapState, k: Double) -> ObjectFill? {
         switch fill {
         case nil:
             return nil
@@ -418,6 +459,11 @@ enum PPTXDocumentMapper {
 
             state.warn("a tiled texture fill on a shape is approximated stretched")
             return ObjectFill(fillKind: .media, mediaId: state.want(forPath: path), mediaScaleMode: .stretch)
+        case .blipDuotone(let path, let dark, let light, let alpha, let sx, let sy, let tiled)?:
+            let placeholder = state.duotoneBake(
+                path: path, darkHex: dark, lightHex: light,
+                alpha: alpha, scaleX: sx, scaleY: sy, tiled: tiled, k: k)
+            return ObjectFill(fillKind: .media, mediaId: placeholder, mediaScaleMode: .stretch)
         case .pattern(let preset, let fg, let bg)?:
 
             state.warn("pattern fills are approximated as a blend of their two colors")

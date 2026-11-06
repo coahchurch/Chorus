@@ -52,6 +52,10 @@ enum PPTXFill: Sendable, Equatable {
 
     case blipTiled(path: String, alpha: Double, scaleX: Double, scaleY: Double, tiled: Bool)
 
+    case blipDuotone(
+        path: String, darkHex: String, lightHex: String,
+        alpha: Double, scaleX: Double, scaleY: Double, tiled: Bool)
+
     case pattern(preset: String, foregroundHex: String, backgroundHex: String)
     case gradient(PPTXGradient)
 }

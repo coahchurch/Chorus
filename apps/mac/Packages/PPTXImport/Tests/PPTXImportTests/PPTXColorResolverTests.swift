@@ -43,6 +43,15 @@ struct PPTXColorResolverTests {
         #expect(hex == "4040BFFF")
     }
 
+    @Test func hueModRotatesHueViaHSL() throws {
+        var warnings: [String] = []
+        let hex = try resolve(
+            "<a:schemeClr val=\"accent1\"><a:hueMod val=\"150000\"/></a:schemeClr>",
+            warnings: &warnings)
+        #expect(hex == "FF0000FF")
+        #expect(warnings.isEmpty)
+    }
+
     @Test func tintBlendsTowardWhite() throws {
         var warnings: [String] = []
 

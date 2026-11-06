@@ -287,6 +287,14 @@ final class PresentCardFrames {
         }
     }
 
+    func forget(_ id: String) {
+        frames.removeValue(forKey: id)
+        docFrames.removeValue(forKey: id)
+        grids.removeValue(forKey: id)
+        docGrids.removeValue(forKey: id)
+        if hold?.id == id { hold = nil }
+    }
+
     func captureHold() {
         if !holdScheduled, ProcessInfo.processInfo.systemUptime >= holdPinnedUntil,
            let card = PresentLanding.cardAtTop(cards), let top = docFrames[card.id]?.minY,

@@ -8,7 +8,11 @@ struct PPTXColorResolver {
 
     func color(in parent: XMLElement?, phClr: String? = nil, warnings: inout [String]) -> String? {
         guard let parent else { return nil }
-        for child in (parent.children ?? []).compactMap({ $0 as? XMLElement }) {
+        let colorKinds = ["srgbClr", "schemeClr", "sysClr", "prstClr", "hslClr", "scrgbClr"]
+        let candidates = colorKinds.contains(parent.localName ?? "")
+            ? [parent]
+            : (parent.children ?? []).compactMap { $0 as? XMLElement }
+        for child in candidates {
             switch child.localName {
             case "srgbClr":
                 guard let hex = child.attr("val") else { return nil }
@@ -60,6 +64,10 @@ struct PPTXColorResolver {
                 if let value { rgb = Self.adjustingHSL(rgb) { $0.l += value } }
             case "satMod":
                 if let value { rgb = Self.adjustingHSL(rgb) { $0.s *= value } }
+            case "hueMod":
+                if let value {
+                    rgb = Self.adjustingHSL(rgb) { $0.h = ($0.h * value).truncatingRemainder(dividingBy: 1) }
+                }
             case .some(let name):
                 appendUnique("color transform \"\(name)\" is not applied", &warnings)
             case nil:

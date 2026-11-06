@@ -105,6 +105,8 @@ struct SlidesAcrossTests {
         let surface = try String(contentsOf: sources.appendingPathComponent("ServiceContinuousView.swift"), encoding: .utf8)
         #expect(!surface.contains("LazyVGrid("), "the media card is a built row")
         #expect(surface.contains("buildsRowsNearView: true"), "the continuous view's grids are fixed rows, not a LazyVGrid")
+        #expect(surface.contains("LazyVStack(alignment: .leading, spacing: 0)"),
+                "service cards are lazy so large services don't build every card and thumbnail")
         #expect(grid.contains("if buildsRowsNearView {\n                tileRows(aspect: aspect, cell: cell)"))
         let rows = try #require(grid.range(of: "private func tileRows(aspect: CGFloat, cell: CGSize?) -> some View {"))
         let rowBody = grid[rows.upperBound...].prefix(1200)

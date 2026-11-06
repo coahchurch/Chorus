@@ -261,6 +261,39 @@ struct PPTXSlideParserTests {
         #expect(warnings.contains("radial gradient approximated as linear"))
     }
 
+    @Test func parsesDuotoneImageFillColors() throws {
+        var warnings: [String] = []
+        let slide = try parseStagedSlide(slideXML(spTree: """
+            <p:sp>
+              <p:nvSpPr><p:cNvPr id="2" name="Duotone"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+              <p:spPr>
+                <a:xfrm><a:off x="0" y="0"/><a:ext cx="914400" cy="914400"/></a:xfrm>
+                <a:blipFill><a:blip r:embed="rId1"><a:duotone>
+                  <a:srgbClr val="302050"/><a:srgbClr val="E0B0D0"/>
+                </a:duotone></a:blip></a:blipFill>
+              </p:spPr>
+            </p:sp>
+            """), extras: [
+                "ppt/slides/_rels/slide1.xml.rels": """
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image.png"/>
+                </Relationships>
+                """,
+                "ppt/media/image.png": "fixture",
+            ], warnings: &warnings)
+
+        if let fill = slide.shapes[0].fill,
+           case .blipDuotone(let path, let dark, let light, let alpha, let sx, let sy, let tiled) = fill {
+            #expect(path.hasSuffix("/ppt/media/image.png"))
+            #expect(dark == "302050FF")
+            #expect(light == "E0B0D0FF")
+            #expect(alpha == 1 && sx == 1 && sy == 1 && !tiled)
+        } else {
+            #expect(Bool(false), "duotone image fill should be preserved")
+        }
+        #expect(warnings.isEmpty)
+    }
+
     private func parseStagedSlide(
         _ slideXML: String, extras: [String: String] = [:], warnings: inout [String]
     ) throws -> PPTXSlide {

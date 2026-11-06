@@ -65,7 +65,7 @@ struct ServiceContinuousView: View {
                     GeometryReader { viewport in
                         ScrollView {
 
-                            VStack(alignment: .leading, spacing: 0) {
+                            LazyVStack(alignment: .leading, spacing: 0) {
 
                                 let rows = presentRows(service)
 
@@ -81,6 +81,9 @@ struct ServiceContinuousView: View {
                                                     item.id, geo.frame(in: .named(Self.contentSpace)))
                                                 Color.clear
                                             }
+                                        }
+                                        .onDisappear {
+                                            PresentCardFrames.shared.forget(item.id)
                                         }
                                 }
                             }

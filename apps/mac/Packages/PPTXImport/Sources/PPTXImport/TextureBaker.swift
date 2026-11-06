@@ -30,6 +30,12 @@ enum TextureBaker {
                 tiled: tiled, k: bake.k,
                 canvasWidth: canvasWidth, canvasHeight: canvasHeight, context: context)
             else { return false }
+        case .duotone(let sourcePath, let darkHex, let lightHex, let alpha, let scaleX, let scaleY, let tiled):
+            guard drawDuotone(
+                sourcePath: sourcePath, darkHex: darkHex, lightHex: lightHex,
+                alpha: alpha, scaleX: scaleX, scaleY: scaleY, tiled: tiled, k: bake.k,
+                canvasWidth: canvasWidth, canvasHeight: canvasHeight, context: context)
+            else { return false }
         case .pattern(let preset, let foregroundHex, let backgroundHex):
             drawPattern(
                 preset: preset, foregroundHex: foregroundHex, backgroundHex: backgroundHex,
@@ -104,6 +110,7 @@ enum TextureBaker {
                 position += stride
             }
         }
+
         func diagonals(up: Bool, stride: Double, lineWidth: Double) {
             context.setLineWidth(lineWidth)
             var offset = -height
@@ -162,6 +169,79 @@ enum TextureBaker {
             }
         default:
             break
+        }
+    }
+
+    private static func drawDuotone(
+        sourcePath: String, darkHex: String, lightHex: String,
+        alpha: Double, scaleX: Double, scaleY: Double, tiled: Bool, k: Double,
+        canvasWidth: Int, canvasHeight: Int, context: CGContext
+    ) -> Bool {
+        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: sourcePath) as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else { return false }
+        let dark = channels(darkHex)
+        let light = channels(lightHex)
+        guard dark.count == 3, light.count == 3 else { return false }
+        let (pixelCount, overflow) = canvasWidth.multipliedReportingOverflow(by: canvasHeight)
+        guard !overflow, pixelCount <= Int.max / 4 else { return false }
+        var pixels = [UInt8](repeating: 0, count: pixelCount * 4)
+        let duotone = pixels.withUnsafeMutableBytes { buffer -> CGImage? in
+            guard let bitmap = CGContext(
+                data: buffer.baseAddress, width: canvasWidth, height: canvasHeight,
+                bitsPerComponent: 8, bytesPerRow: canvasWidth * 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return nil }
+
+            bitmap.clear(CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+            let tileWidth = Double(image.width) * scaleX * k
+            let tileHeight = Double(image.height) * scaleY * k
+            guard tileWidth >= 1, tileHeight >= 1 else { return nil }
+            if tiled {
+                var y = 0.0
+                while y < Double(canvasHeight) {
+                    var x = 0.0
+                    while x < Double(canvasWidth) {
+                        bitmap.draw(image, in: CGRect(x: x, y: y, width: tileWidth, height: tileHeight))
+                        x += tileWidth
+                    }
+                    y += tileHeight
+                }
+            } else {
+                bitmap.draw(image, in: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+            }
+            bitmap.flush()
+
+            let bytes = buffer.bindMemory(to: UInt8.self)
+            let opacity = min(max(alpha, 0), 1)
+            for offset in stride(from: 0, to: bytes.count, by: 4) {
+                let sourceAlpha = Double(bytes[offset + 3]) / 255
+                guard sourceAlpha > 0 else { continue }
+                let red = Double(bytes[offset]) / 255 / sourceAlpha
+                let green = Double(bytes[offset + 1]) / 255 / sourceAlpha
+                let blue = Double(bytes[offset + 2]) / 255 / sourceAlpha
+                let luminance = min(max(0.2126 * red + 0.7152 * green + 0.0722 * blue, 0), 1)
+                let outputAlpha = sourceAlpha * opacity
+                for channel in 0..<3 {
+                    let color = dark[channel] * (1 - luminance) + light[channel] * luminance
+                    bytes[offset + channel] = UInt8((color * outputAlpha * 255).rounded())
+                }
+                bytes[offset + 3] = UInt8((outputAlpha * 255).rounded())
+            }
+            return bitmap.makeImage()
+        }
+        guard let duotone else { return false }
+        context.draw(duotone, in: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+        return true
+    }
+
+    private static func channels(_ hex: String) -> [Double] {
+        let value = String(hex.prefix(6))
+        return stride(from: 0, to: 6, by: 2).compactMap { offset in
+            let start = value.index(value.startIndex, offsetBy: offset)
+            let end = value.index(start, offsetBy: 2)
+            return UInt8(value[start..<end], radix: 16).map { Double($0) / 255 }
         }
     }
 
