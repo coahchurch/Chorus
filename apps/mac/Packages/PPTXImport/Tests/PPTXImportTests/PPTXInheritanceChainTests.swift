@@ -106,7 +106,7 @@ struct PPTXInheritanceChainTests {
                 <p:nvSpPr><p:cNvPr id="2" name="Layout Title"/><p:cNvSpPr/><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
                 <p:spPr><a:xfrm><a:off x="914400" y="304800"/><a:ext cx="10363200" cy="1325563"/></a:xfrm></p:spPr>
                 <p:txBody>
-                  <a:bodyPr/>
+                  <a:bodyPr anchor="b"/>
                   <a:lstStyle><a:lvl1pPr><a:defRPr sz="3600"/></a:lvl1pPr></a:lstStyle>
                   <a:p/>
                 </p:txBody>
@@ -290,6 +290,7 @@ struct PPTXInheritanceChainTests {
         #expect(titleRun.sizeHundredthsPt == 3600)
         #expect(titleRun.bold)
         #expect(titleRun.colorHex == "000000FF")
+        #expect(title.textBody?.anchor == "b")
         #expect(title.textBody?.paragraphs.first?.alignment == "ctr")
 
         let body = slide.shapes[3]

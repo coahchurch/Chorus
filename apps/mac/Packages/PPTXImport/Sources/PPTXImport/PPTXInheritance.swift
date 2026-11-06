@@ -122,6 +122,13 @@ final class PPTXInheritance {
         return nil
     }
 
+    func inheritedTextAnchor(placeholderType: String?, placeholderIndex: Int?) -> String? {
+        let layout = matchingPlaceholder(in: layoutRoot, type: placeholderType, idx: placeholderIndex, useIdx: true)
+        let master = matchingPlaceholder(in: masterRoot, type: placeholderType, idx: nil, useIdx: false)
+        return layout?.first(local: "txBody")?.first(local: "bodyPr")?.attr("anchor")
+            ?? master?.first(local: "txBody")?.first(local: "bodyPr")?.attr("anchor")
+    }
+
     private func matchingPlaceholder(in root: XMLElement?, type: String?, idx: Int?, useIdx: Bool) -> XMLElement? {
         guard let spTree = root?.descendant(["cSld", "spTree"]) else { return nil }
         var candidates: [(sp: XMLElement, type: String, idx: Int?)] = []

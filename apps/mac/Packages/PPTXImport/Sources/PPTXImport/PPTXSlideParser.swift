@@ -725,6 +725,9 @@ enum PPTXSlideParser {
         var body = PPTXTextBody()
         if let bodyPr = txBody.first(local: "bodyPr") {
             body.anchor = bodyPr.attr("anchor")
+                ?? placeholder.flatMap {
+                    inheritance.inheritedTextAnchor(placeholderType: $0.type, placeholderIndex: $0.idx)
+                }
             body.wrap = bodyPr.attr("wrap")
             body.topInsetEMU = bodyPr.emuAttr("tIns")
             body.leftInsetEMU = bodyPr.emuAttr("lIns")

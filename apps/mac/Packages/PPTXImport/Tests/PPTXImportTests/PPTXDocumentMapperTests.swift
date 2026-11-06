@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 import PresenterCore
+import RenderEngine
 @testable import PPTXImport
 
 struct PPTXDocumentMapperTests {
@@ -233,6 +234,21 @@ struct PPTXDocumentMapperTests {
         #expect(style?.autoShrink == true)
 
         #expect(style?.fontSize == 50)
+    }
+
+    @Test func overflowingBottomAnchoredPlaceholderExpandsUpward() {
+        var shape = textShape(
+            [run(String(repeating: "A long line of slide text that wraps. ", count: 12))],
+            anchor: "b",
+            transform: transform(x: 0, y: 4_000_000, cx: 3_000_000, cy: 100_000))
+        shape.isPlaceholder = true
+        let mapped = map(deck(slides: [PPTXSlide(shapes: [shape])]))
+        let object = mapped.presentation.slides[0].objects[0]
+
+        #expect(object.height ?? 0 > 20)
+        #expect((object.y ?? 0) < 629)
+        #expect(abs((object.y ?? 0) + (object.height ?? 0) - 645.6) < 0.1)
+        #expect(object.textStyle?.verticalAlignment == .bottom)
     }
 
     @Test func defaultBodyInsetsAreWrittenScaled() {

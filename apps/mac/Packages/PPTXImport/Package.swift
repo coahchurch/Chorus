@@ -11,12 +11,14 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../PresenterCore"),
+        .package(path: "../RenderEngine"),
     ],
     targets: [
         .target(
             name: "PPTXImport",
             dependencies: [
                 "PresenterCore",
+                "RenderEngine",
             ]
         ),
         .testTarget(name: "PPTXImportTests", dependencies: ["PPTXImport"]),

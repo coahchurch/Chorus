@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import PresenterCore
+import RenderEngine
 
 struct PPTXMappedDocument: Sendable {
     var presentation: Presentation
@@ -320,7 +321,7 @@ enum PPTXDocumentMapper {
         _ shape: PPTXShape, scene: (Double) -> Double, k: Double, state: inout MapState
     ) -> SlideObject? {
         let transform = shape.transform
-        let frame = (
+        var frame = (
             x: scene(transform.offXEMU), y: scene(transform.offYEMU),
             w: scene(transform.extXEMU), h: scene(transform.extYEMU)
         )
@@ -370,6 +371,15 @@ enum PPTXDocumentMapper {
             var styleRuns: [TextStyleRun] = []
             if !text.isEmpty, let body = shape.textBody {
                 (textStyle, styleRuns) = self.textStyle(for: body, k: k, state: &state)
+                if shape.isPlaceholder, body.anchor == "b", let textStyle {
+                    let requiredHeight = requiredTextHeight(
+                        text, style: textStyle, styleRuns: styleRuns, width: frame.w)
+                    if requiredHeight > frame.h {
+                        let addedHeight = requiredHeight - frame.h
+                        frame.y -= addedHeight
+                        frame.h = requiredHeight
+                    }
+                }
             }
 
             if !text.isEmpty, !fillIsInk, stroke == nil {
@@ -591,6 +601,48 @@ enum PPTXDocumentMapper {
         if !overrides.isEmpty { style.lineStyles = overrides }
 
         return (style, styleRuns)
+    }
+
+    private static func requiredTextHeight(
+        _ string: String, style: TextStyle, styleRuns: [TextStyleRun], width: Double
+    ) -> Double {
+        let alignment: SceneTextAlignment = switch style.horizontalAlignment {
+        case .center: .center
+        case .right: .right
+        default: .left
+        }
+        let lineOverrides = (style.lineStyles ?? []).map {
+            TextLineOverride(
+                lineIndex: $0.lineIndex, fontName: $0.fontName, fontSize: $0.fontSize,
+                tracking: $0.tracking, firstLineIndent: $0.firstLineIndent,
+                leftIndent: $0.leftIndent, rightIndent: $0.rightIndent)
+        }
+        let runs = styleRuns.map {
+            RenderEngine.StyleRun(
+                line: $0.line, column: $0.column, length: $0.length,
+                fontName: $0.fontName, fontSize: $0.fontSize, tracking: $0.tracking)
+        }
+        let styledText = StyledText(
+            string: string,
+            fontName: style.fontName ?? "HelveticaNeue",
+            fontSize: style.fontSize ?? 18,
+            alignment: alignment,
+            tracking: style.tracking ?? 0,
+            lineHeightMultiple: style.lineHeightMultiple ?? 1,
+            verticalAlignment: .bottom,
+            autoShrink: false,
+            minFontSize: style.minFontSize ?? StyledText.defaultMinFontSize,
+            lineOverrides: lineOverrides,
+            insetTop: style.insetTop ?? 0,
+            insetLeft: style.insetLeft ?? 0,
+            insetBottom: style.insetBottom ?? 0,
+            insetRight: style.insetRight ?? 0,
+            firstLineIndent: style.firstLineIndent ?? 0,
+            leftIndent: style.leftIndent ?? 0,
+            rightIndent: style.rightIndent ?? 0,
+            paragraphSpacing: style.paragraphSpacing ?? 0,
+            styleRuns: runs)
+        return Double(TextRasterizer.blockHeight(for: styledText, sceneWidth: width))
     }
 
     private static func dominantRun(_ runs: [PPTXRun]) -> PPTXRun? {
