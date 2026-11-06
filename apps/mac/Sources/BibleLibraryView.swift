@@ -553,13 +553,7 @@ struct BibleLibraryView: View {
     }
 
     private func shortVersionName(_ version: BibleXMLImporter.Version) -> String {
-        let name = version.name
-        if name.localizedCaseInsensitiveContains("tamil") { return "TAM" }
-        let parts = name.split { !$0.isLetter && !$0.isNumber }
-        if let abbreviation = parts.last, abbreviation.count <= 6 {
-            return abbreviation.uppercased()
-        }
-        return name
+        BibleVerseSlideBuilder.shortVersionName(version.name)
     }
 
     private var searchField: some View {
@@ -790,7 +784,7 @@ struct BibleLibraryView: View {
         tamil: BibleXMLImporter.Verse?
     ) -> some View {
         let isLive = controls?.livePresentationID == biblePresentationID(for: verse)
-        return Button {
+        Button {
             showVerse(verse)
         } label: {
             HStack(alignment: .top, spacing: 10) {
@@ -1125,86 +1119,14 @@ struct BibleLibraryView: View {
         sectionID: String,
         tamil: BibleXMLImporter.Verse?
     ) -> Slide {
-        let superscriptNumber = Self.superscriptNumber(verse.number)
-        let text = [
-            "\(superscriptNumber) \(verse.text)",
-            tamil.map { "\(superscriptNumber) \($0.text)" },
-        ].compactMap { $0 }.joined(separator: "\n\n")
-        let reference = SlideObject(
-            id: UUID().uuidString,
-            objectKind: .text,
-            name: "Bible Reference",
-            text: "\(verse.book) \(verse.chapter):\(verse.number)",
-            x: 200,
-            y: 55,
-            width: 1520,
-            height: 85,
-            textStyle: TextStyle(
-                fontSize: 34,
-                horizontalAlignment: .center,
-                verticalAlignment: .middle,
-                autoShrink: true,
-                minFontSize: 24
-            )
+        BibleVerseSlideBuilder.makeSlide(
+            for: verse,
+            sectionID: sectionID,
+            tamil: tamil,
+            versionName: englishVersion.map(shortVersionName) ?? "",
+            tamilVersionName: tamilVersion.map(shortVersionName),
+            themeSlideName: model.slideBuilding.lyricsDesign
         )
-        let scripture = SlideObject(
-            id: UUID().uuidString,
-            objectKind: .text,
-            name: "Scripture",
-            text: text,
-            x: 200,
-            y: 150,
-            width: 1520,
-            height: 790,
-            textStyle: TextStyle(
-                lineHeightMultiple: 1.12,
-                horizontalAlignment: .center,
-                verticalAlignment: .middle,
-                autoShrink: true,
-                minFontSize: 24
-            )
-        )
-        var versionLabels: [String] = []
-        if let englishVersion {
-            versionLabels.append(shortVersionName(englishVersion))
-        }
-        if tamil != nil, let tamilVersion {
-            versionLabels.append(shortVersionName(tamilVersion))
-        }
-        let versionNames = versionLabels.joined(separator: "  ·  ")
-        let versions = SlideObject(
-            id: UUID().uuidString,
-            objectKind: .text,
-            name: "Bible Versions",
-            text: versionNames.isEmpty ? "" : versionNames,
-            x: 200,
-            y: 955,
-            width: 1520,
-            height: 70,
-            textStyle: TextStyle(
-                fontSize: 28,
-                horizontalAlignment: .center,
-                verticalAlignment: .middle,
-                autoShrink: true,
-                minFontSize: 18
-            )
-        )
-        var slide = Slide(
-            id: UUID().uuidString,
-            name: "\(verse.book) \(verse.chapter):\(verse.number)",
-            objects: [reference, scripture, versions]
-        )
-        slide.sectionId = sectionID
-        slide.themeSlideName = model.slideBuilding.lyricsDesign
-        return slide
-    }
-
-    private static func superscriptNumber(_ number: Int) -> String {
-        let superscriptDigits: [Character: Character] = [
-            "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
-            "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
-        ]
-        return String(String(number).map { superscriptDigits[$0] ?? $0 })
     }
 }
 

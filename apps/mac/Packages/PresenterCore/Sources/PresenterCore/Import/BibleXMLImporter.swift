@@ -1,6 +1,8 @@
 import Foundation
 
 public enum BibleXMLImporter {
+    public static let parsedVerseServiceMarker = "chorus.parsedBibleVerse"
+    public static let parsedPassageServiceMarker = "chorus.parsedBiblePassage"
 
     public struct Verse: Codable, Equatable, Sendable, Identifiable {
         public var book: String
@@ -67,6 +69,34 @@ public enum BibleXMLImporter {
         public var book: String
         public var chapter: Int
         public var verses: ClosedRange<Int>?
+        public var endChapter: Int?
+        public var endVerse: Int?
+
+        public init(
+            book: String, chapter: Int, verses: ClosedRange<Int>? = nil,
+            endChapter: Int? = nil, endVerse: Int? = nil
+        ) {
+            self.book = book
+            self.chapter = chapter
+            self.verses = verses
+            self.endChapter = endChapter
+            self.endVerse = endVerse
+        }
+
+        public var displayName: String {
+            if let verses {
+                let start = "\(book) \(chapter):\(verses.lowerBound)"
+                if let endChapter {
+                    return "\(start)–\(endChapter):\(endVerse ?? verses.upperBound)"
+                }
+                return verses.lowerBound == verses.upperBound
+                    ? start : "\(start)–\(verses.upperBound)"
+            }
+            if let endChapter {
+                return "\(book) \(chapter)–\(endChapter)"
+            }
+            return "\(book) \(chapter)"
+        }
     }
 
     public enum ImportError: Error, LocalizedError, Sendable, Equatable {
@@ -156,6 +186,174 @@ public enum BibleXMLImporter {
         }
         guard let verseEnd, verseEnd >= verseStart else { return nil }
         return Reference(book: book, chapter: chapter, verses: verseStart...verseEnd)
+    }
+
+    public static func references(in text: String) -> [Reference] {
+        let aliases = bookAliases.keys.sorted {
+            $0.count == $1.count ? $0 < $1 : $0.count > $1.count
+        }
+        let bookPattern = aliases.map { alias in
+            alias.split(separator: " ")
+                .map { NSRegularExpression.escapedPattern(for: String($0)) }
+                .joined(separator: #"\s+"#)
+        }.joined(separator: "|")
+        let pattern = #"(?<![\p{L}\p{N}])(?<book>\#(bookPattern))(?![\p{L}\p{N}])\.?\s+(?<chapter>\d+)(?:\s*:\s*(?<verse>\d+)(?:\s*[-–—]\s*(?:(?<endChapter>\d+)\s*:\s*)?(?<endVerse>\d+))?|\s*[-–—]\s*(?<endChapterOnly>\d+))?"#
+        let regex: NSRegularExpression
+        do {
+            regex = try NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+        } catch {
+            preconditionFailure("Bible reference pattern is invalid: \(error)")
+        }
+        let shorthandRegex: NSRegularExpression
+        do {
+            shorthandRegex = try NSRegularExpression(
+                pattern: #"^\s*,\s*(\d+)(?:\s*[-–—]\s*(\d+))?"#
+            )
+        } catch {
+            preconditionFailure("Bible shorthand reference pattern is invalid: \(error)")
+        }
+
+        let nsText = text as NSString
+        let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
+        var references: [Reference] = []
+        var consumedUntil = 0
+        for match in matches where match.range.location >= consumedUntil {
+            guard let reference = reference(from: text, match: match) else { continue }
+            references.append(reference)
+            consumedUntil = NSMaxRange(match.range)
+
+            guard reference.endChapter == nil, reference.verses != nil else {
+                continue
+            }
+            while consumedUntil < nsText.length {
+                let remainingRange = NSRange(
+                    location: consumedUntil, length: nsText.length - consumedUntil
+                )
+                guard let remainingTextRange = Range(remainingRange, in: text) else { break }
+                let remainingText = String(text[remainingTextRange])
+                let remainingNSString = remainingText as NSString
+                guard let shorthand = shorthandRegex.firstMatch(
+                    in: remainingText,
+                    range: NSRange(location: 0, length: remainingNSString.length)
+                ), let startRange = Range(shorthand.range(at: 1), in: remainingText),
+                   let startVerse = Int(remainingText[startRange]) else {
+                    break
+                }
+                let endVerse = Range(shorthand.range(at: 2), in: remainingText)
+                    .flatMap { Int(remainingText[$0]) } ?? startVerse
+                guard endVerse >= startVerse else { break }
+                references.append(Reference(
+                    book: reference.book,
+                    chapter: reference.chapter,
+                    verses: startVerse...endVerse
+                ))
+                consumedUntil += NSMaxRange(shorthand.range)
+            }
+        }
+        return references
+    }
+
+    private static func reference(
+        from text: String, match: NSTextCheckingResult
+    ) -> Reference? {
+        guard let bookRange = Range(match.range(withName: "book"), in: text),
+              let chapterRange = Range(match.range(withName: "chapter"), in: text),
+              let chapter = Int(text[chapterRange]), chapter > 0 else {
+            return nil
+        }
+        let book = canonicalBookName(String(text[bookRange]))
+        guard bookNames.contains(book) else { return nil }
+
+        let verse = Range(match.range(withName: "verse"), in: text)
+            .flatMap { Int(text[$0]) }
+        let endVerse = Range(match.range(withName: "endVerse"), in: text)
+            .flatMap { Int(text[$0]) }
+        let endChapter = Range(match.range(withName: "endChapter"), in: text)
+            .flatMap { Int(text[$0]) }
+        let endChapterOnly = Range(match.range(withName: "endChapterOnly"), in: text)
+            .flatMap { Int(text[$0]) }
+
+        if let endChapterOnly {
+            guard endChapterOnly >= chapter else { return nil }
+            return Reference(book: book, chapter: chapter, endChapter: endChapterOnly)
+        }
+        guard let verse else {
+            return Reference(book: book, chapter: chapter)
+        }
+        let finalChapter = endChapter ?? chapter
+        let finalVerse = endVerse ?? verse
+        guard finalChapter >= chapter,
+              finalChapter != chapter || finalVerse >= verse,
+              finalVerse > 0 else {
+            return nil
+        }
+        let verseRange = endChapter == nil ? verse...(endVerse ?? verse) : verse...verse
+        return Reference(
+            book: book, chapter: chapter, verses: verseRange,
+            endChapter: endChapter, endVerse: endChapter == nil ? nil : endVerse
+        )
+    }
+
+    public static func verses(
+        for reference: Reference, in version: Version
+    ) -> [Verse]? {
+        let lastChapter = reference.endChapter ?? reference.chapter
+        let matches = version.verses
+            .filter { verse in
+                guard verse.book == reference.book,
+                      (reference.chapter...lastChapter).contains(verse.chapter) else {
+                    return false
+                }
+                if verse.chapter == reference.chapter,
+                   let startVerse = reference.verses?.lowerBound,
+                   verse.number < startVerse {
+                    return false
+                }
+                if verse.chapter == reference.chapter,
+                   reference.endChapter == nil,
+                   let endVerse = reference.verses?.upperBound,
+                   verse.number > endVerse {
+                    return false
+                }
+                if verse.chapter == lastChapter,
+                   let endVerse = reference.endVerse,
+                   verse.number > endVerse {
+                    return false
+                }
+                return true
+            }
+            .sorted {
+                ($0.chapter, $0.number) < ($1.chapter, $1.number)
+            }
+
+        guard !matches.isEmpty,
+              matches.first?.chapter == reference.chapter else {
+            return nil
+        }
+        let availableChapters = Set(matches.map(\.chapter))
+        guard (reference.chapter...lastChapter).allSatisfy(availableChapters.contains) else {
+            return nil
+        }
+        if let startVerse = reference.verses?.lowerBound {
+            guard matches.first?.chapter == reference.chapter,
+                  matches.first?.number == startVerse else {
+                return nil
+            }
+        }
+        if let endVerse = reference.endVerse {
+            guard matches.last?.chapter == lastChapter,
+                  matches.last?.number == endVerse else {
+                return nil
+            }
+        } else if reference.endChapter == nil,
+                  let endVerse = reference.verses?.upperBound,
+                  matches.last?.chapter != reference.chapter || matches.last?.number != endVerse {
+            return nil
+        } else if reference.endChapter != nil,
+                  matches.last?.chapter != lastChapter {
+            return nil
+        }
+        return matches
     }
 
     public static func canonicalBookName(_ rawValue: String, bookNumber: Int? = nil) -> String {

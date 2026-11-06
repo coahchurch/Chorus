@@ -15,9 +15,7 @@ public enum ServiceRunOrder {
 
     public static func nextFireable(in show: [ServiceItem], after itemID: String) -> ServiceItem? {
         guard let index = show.firstIndex(where: { $0.id == itemID }) else { return nil }
-        return show[(index + 1)...].first {
-            $0.itemKind == .presentation || $0.itemKind == .song || $0.itemKind == .media
-        }
+        return show[(index + 1)...].first(where: isFireable)
     }
 
     public static func ordered(_ items: [ServiceItem], by order: [String]?) -> [ServiceItem] {
@@ -68,9 +66,13 @@ public enum ServiceRunOrder {
         _ items: [ServiceItem], timeHexId: String? = nil, order: [String]? = nil
     ) -> [ServiceItem] {
         visible(items, timeHexId: timeHexId, order: order)
-            .filter {
-                $0.itemKind == .presentation || $0.itemKind == .song || $0.itemKind == .media
-            }
+            .filter(isFireable)
+    }
+
+    private static func isFireable(_ item: ServiceItem) -> Bool {
+        item.itemKind == .presentation || item.itemKind == .song || item.itemKind == .media
+            || (item.itemKind == .header
+                && item.mxuDescription == BibleXMLImporter.parsedPassageServiceMarker)
     }
 
     public static func itemKind(adding kind: DocumentKind) -> ServiceItemKind? {

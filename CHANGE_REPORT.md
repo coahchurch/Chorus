@@ -993,3 +993,17 @@ Ran the available package and application validation suites after the search fix
 
 The audit also updated the LocalAPI test bridge for the current return-to-underlying-slide protocol, aligned output test fixtures with intentional audience overlay hiding, and hardened literal FTS-operator handling. User-provided `EnglishBible.xml` and `TamilBible.xml` remain untracked and were not committed.
 The follow-up SlideScene validation now passes all 63 tests, including the geometric lower-third animation and confidence chord layout regressions. The full AudioEngine suite also passes (13 tests); the earlier host-clock failure was a concurrent-run timing issue.
+
+## 40. Parse Bible verses from PowerPoint (2026-11-06)
+
+Added a **Parse Verses** action to the Service Flow’s Add Item menu. It accepts `.pptx` files, preserves and adds the source presentation, scans slide text for Bible references, resolves them against an imported English Bible XML version, and appends generated verse slides to the flow. Multi-verse and chapter passages appear as clickable, grouped verse rows; selecting a live verse again returns to the previously displayed slide. If no English Bible version is available, the workflow offers to import one.
+
+Reference parsing supports common book names and abbreviations, single verses, shorthand verse lists, verse ranges, whole chapters, and cross-chapter ranges. Unresolved references are reported in the import result. The parser scans slide text only; it does not OCR images or inspect speaker notes.
+
+Validation:
+
+- PresenterCore Bible importer and Service Flow tests passed (21 tests).
+- Chorus Debug build succeeded.
+- `git diff --check` passed.
+
+The user-provided `EnglishBible.xml` and `TamilBible.xml` files remain untracked and are not included in this change.

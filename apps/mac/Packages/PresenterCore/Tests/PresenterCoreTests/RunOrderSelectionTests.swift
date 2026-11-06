@@ -61,3 +61,19 @@ private let rows = [item("h1", .header), item("a"), item("b", .media), item("h2"
         updatedAt: .distantPast, lastUsedAt: nil, tag: "song")
     #expect(ServiceRunOrder.itemKind(adding: song) == .song)
 }
+
+@Test func parsedPassageHeadersCanStartTheServiceFlow() {
+    let passage = ServiceItem(
+        id: "passage", itemKind: .header, name: "John 3:16–18", refId: "verse-1",
+        mxuDescription: BibleXMLImporter.parsedPassageServiceMarker
+    )
+    let verse = ServiceItem(
+        id: "verse-1", itemKind: .presentation, name: "John 3:16", refId: "verse-deck",
+        mxuDescription: BibleXMLImporter.parsedVerseServiceMarker
+    )
+    let items = [item("song"), passage, verse]
+
+    #expect(ServiceRunOrder.fireable(items).map(\.id) == ["song", "passage", "verse-1"])
+    #expect(ServiceRunOrder.nextFireable(in: items, after: "song")?.id == "passage")
+    #expect(ServiceRunOrder.nextFireable(in: items, after: "verse-1") == nil)
+}

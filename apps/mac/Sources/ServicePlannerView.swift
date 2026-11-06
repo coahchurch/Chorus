@@ -48,6 +48,7 @@ struct RunOrderList: View {
     @State private var marqueeBase: Set<String> = []
 
     @State private var addingFromLibrary = false
+    @State private var showingParseVerses = false
 
     @State private var dropTargetItemID: String?
 
@@ -110,6 +111,9 @@ struct RunOrderList: View {
             }
             .sheet(isPresented: $addingFromLibrary) {
                 ServiceItemChooser(model: model, serviceID: serviceID, render: render)
+            }
+            .sheet(isPresented: $showingParseVerses) {
+                ParseVersesSheet(model: model, serviceID: serviceID, controls: controls)
             }
             .mediaCueSheets(model: model, state: mediaMenuState)
         } else {
@@ -367,11 +371,33 @@ struct RunOrderList: View {
             .buttonStyle(.plain)
             .help(collapsed ? "Expand" : "Collapse")
             rule(tint)
-            Text(item.name.uppercased())
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(tint ?? Color.secondary.opacity(0.8))
-                .tracking(0.6)
-                .layoutPriority(1)
+            Group {
+                if item.mxuDescription == BibleXMLImporter.parsedPassageServiceMarker {
+                    Button {
+                        fireParsedVerseItem(item)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(item.name)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(tint ?? Color.secondary.opacity(0.8))
+                            Image(systemName: parsedVerseItemIsLive(item)
+                                ? "arrow.uturn.backward.circle.fill" : "play.circle.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help(parsedVerseItemIsLive(item)
+                        ? "Return to the previous slide" : "Show this passage")
+                    .disabled(controls == nil)
+                } else {
+                    Text(item.name.uppercased())
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(tint ?? Color.secondary.opacity(0.8))
+                        .tracking(0.6)
+                }
+            }
+            .layoutPriority(1)
             rule(tint)
 
             Color.clear.frame(width: 14, height: 1)
@@ -464,17 +490,41 @@ struct RunOrderList: View {
 
     @ViewBuilder
     private func itemRow(_ item: ServiceItem, order: [String], changed: Bool) -> some View {
+        let isParsedVerse = item.mxuDescription == BibleXMLImporter.parsedVerseServiceMarker
         HStack(spacing: 8) {
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(displayName(item))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .foregroundStyle(item.itemKind == .info ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+                if isParsedVerse {
+                    Button {
+                        fireParsedVerseItem(item)
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text(displayName(item))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .foregroundStyle(.primary)
+                            Image(systemName: parsedVerseItemIsLive(item)
+                                ? "arrow.uturn.backward.circle.fill" : "play.circle.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help(parsedVerseItemIsLive(item)
+                        ? "Return to the previous slide" : "Show verse")
+                    .disabled(controls == nil)
+                } else {
+                    Text(displayName(item))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(item.itemKind == .info ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
+                }
 
                 transitionLine(item)
             }
             .layoutPriority(0)
+            .padding(.leading, isParsedVerse ? 16 : 0)
             Spacer(minLength: 4)
 
             if changed {
@@ -834,6 +884,7 @@ struct RunOrderList: View {
                     }
                 }
                 Button("New Media Item…") { importMediaIntoService() }
+                Button("Parse Verses…") { showingParseVerses = true }
                 Button("Header…") { addingHeader = true }
                 Divider()
                 Button("Add From Library…") { addingFromLibrary = true }
@@ -862,6 +913,24 @@ struct RunOrderList: View {
     private func itemCountLabel(_ service: Service) -> String {
         let count = service.items.filter { $0.itemKind != .header }.count
         return count == 1 ? "1 item" : "\(count) items"
+    }
+
+    private func fireParsedVerseItem(_ item: ServiceItem) {
+        guard let controls else { return }
+        selection = [item.id]
+        selectedItemID = item.id
+        switch controls.fireServiceItem(item) {
+        case .fired:
+            break
+        case .decoding:
+            DiagnosticsStore.shared.note("parseVerses.fire.decoding", detail: item.name)
+        case .unresolvable:
+            DiagnosticsStore.shared.note("parseVerses.fire.unresolvable", detail: item.name)
+        }
+    }
+
+    private func parsedVerseItemIsLive(_ item: ServiceItem) -> Bool {
+        controls?.state.liveSlide?.presentation?.id == item.refId
     }
 
     private func arrangementName(_ item: ServiceItem) -> String? {

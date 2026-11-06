@@ -556,7 +556,10 @@ final class ServiceControls {
         }
     }
 
-    func toggleBibleVerse(slide: Slide, in presentation: Presentation) {
+    func toggleBibleVerse(
+        slide: Slide, in presentation: Presentation,
+        contextID: String? = nil, occurrence: Int? = nil
+    ) {
         if let returnState = bibleVerseReturn,
            returnState.currentPresentationID == presentation.id,
            state.liveSlide?.presentation?.id == presentation.id {
@@ -585,7 +588,10 @@ final class ServiceControls {
                 contextID: liveContextID,
                 occurrence: liveOccurrence)
         }
-        fire(slide: slide, in: presentation, slideActions: false)
+        fire(
+            slide: slide, in: presentation,
+            contextID: contextID, occurrence: occurrence, slideActions: false
+        )
     }
 
     func returnFromBibleVerse() {
@@ -1058,7 +1064,7 @@ final class ServiceControls {
         guard let contextID = liveContextID,
               let serviceID = appModel.currentServiceID,
               let service = try? appModel.service(serviceID),
-              let itemIndex = service.items.firstIndex(where: { $0.id == contextID })
+              service.items.contains(where: { $0.id == contextID })
         else { return }
         fireNextServiceItem(after: contextID, in: service)
     }
@@ -1092,9 +1098,35 @@ final class ServiceControls {
                 for: presentation, arrangementId: item.arrangementId
             )
             guard let first = slides.first else { return .unresolvable }
+            if item.mxuDescription == BibleXMLImporter.parsedVerseServiceMarker
+                || presentation.origin?.detail == BibleVerseSlideBuilder.liveVerseOrigin {
+                toggleBibleVerse(
+                    slide: first, in: presentation,
+                    contextID: item.id, occurrence: 0
+                )
+                return .fired
+            }
             fire(
                 slide: first, in: presentation, arrangementId: item.arrangementId,
                 contextID: item.id, occurrence: 0
+            )
+            return .fired
+        case .header:
+            guard item.mxuDescription == BibleXMLImporter.parsedPassageServiceMarker,
+                  let presentation = appModel.presentation(item.refId),
+                  let first = presentation.slides.first else {
+                return .unresolvable
+            }
+            let firstVerseItemID = appModel.currentServiceID
+                .flatMap { try? appModel.service($0) }?
+                .items
+                .drop(while: { $0.id != item.id })
+                .dropFirst()
+                .first(where: { $0.mxuDescription == BibleXMLImporter.parsedVerseServiceMarker })?
+                .id
+            toggleBibleVerse(
+                slide: first, in: presentation,
+                contextID: firstVerseItemID ?? item.id, occurrence: 0
             )
             return .fired
         case .media:

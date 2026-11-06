@@ -150,6 +150,71 @@ struct BibleXMLImporterTests {
         #expect(BibleXMLImporter.search(versions: [version], query: "Esther 8").map(\.verse.number) == [8, 9, 10])
     }
 
+    @Test func extractsOrderedReferencesIncludingChapterAndCrossChapterRanges() {
+        let references = BibleXMLImporter.references(
+            in: "See Jn. 3:16–18, then 1 John 4 and Romans 8:28–9:2."
+        )
+
+        #expect(references.map(\.displayName) == [
+            "John 3:16–18",
+            "1 John 4",
+            "Romans 8:28–9:2",
+        ])
+        #expect(references.map(\.book) == ["John", "1 John", "Romans"])
+        #expect(references[0].verses == 16...18)
+        #expect(references[1].verses == nil)
+        #expect(references[2].chapter == 8)
+        #expect(references[2].verses == 28...28)
+        #expect(references[2].endChapter == 9)
+        #expect(references[2].endVerse == 2)
+    }
+
+    @Test func extractsShorthandVerseListsAndPeriodEndedAbbreviations() {
+        let references = BibleXMLImporter.references(in: "Jn. 3:16, 18–20")
+
+        #expect(references.map(\.displayName) == ["John 3:16", "John 3:18–20"])
+    }
+
+    @Test func extractsChapterRangesAndDoesNotMatchBooksInsideWords() {
+        let references = BibleXMLImporter.references(
+            in: "Matthew 5–7. Not a reference: Johnathan 3:16."
+        )
+
+        #expect(references.map(\.displayName) == ["Matthew 5–7"])
+    }
+
+    @Test func resolvesWholeChapterAndCrossChapterPassagesInVerseOrder() {
+        let version = BibleXMLImporter.Version(
+            id: "english", name: "English", sourceName: "english.xml", verses: [
+                .init(book: "John", bookNumber: 43, chapter: 4, number: 2, text: "four two"),
+                .init(book: "John", bookNumber: 43, chapter: 3, number: 17, text: "three seventeen"),
+                .init(book: "John", bookNumber: 43, chapter: 3, number: 16, text: "three sixteen"),
+                .init(book: "John", bookNumber: 43, chapter: 4, number: 1, text: "four one"),
+            ]
+        )
+        let references = BibleXMLImporter.references(
+            in: "John 3:16–4:2; John 4"
+        )
+
+        #expect(BibleXMLImporter.verses(for: references[0], in: version)?.map(\.id) == [
+            "John|3|16", "John|3|17", "John|4|1", "John|4|2",
+        ])
+        #expect(BibleXMLImporter.verses(for: references[1], in: version)?.map(\.id) == [
+            "John|4|1", "John|4|2",
+        ])
+    }
+
+    @Test func doesNotResolveRangesWithUnavailableEndpoints() throws {
+        let version = BibleXMLImporter.Version(
+            id: "english", name: "English", sourceName: "english.xml", verses: [
+                .init(book: "John", bookNumber: 43, chapter: 3, number: 16, text: "...")
+            ]
+        )
+        let reference = try #require(BibleXMLImporter.references(in: "John 3:16–18").first)
+
+        #expect(BibleXMLImporter.verses(for: reference, in: version) == nil)
+    }
+
     @Test func rejectsUnrecognizedXmlAndEmptyBible() {
         #expect(throws: BibleXMLImporter.ImportError.noVerses) {
             try BibleXMLImporter.parse(
