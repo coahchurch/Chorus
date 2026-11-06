@@ -16,12 +16,16 @@ enum BibleVerseSlideBuilder {
     static func makePresentation(
         for verse: BibleXMLImporter.Verse,
         versionName: String,
+        tamil: BibleXMLImporter.Verse? = nil,
+        tamilVersionName: String? = nil,
         themeSlideName: String
     ) -> Presentation {
         let slide = makeSlide(
             for: verse,
             sectionID: "bible-\(verse.book)-\(verse.chapter)",
+            tamil: tamil,
             versionName: versionName,
+            tamilVersionName: tamilVersionName,
             themeSlideName: themeSlideName
         )
         return Presentation(

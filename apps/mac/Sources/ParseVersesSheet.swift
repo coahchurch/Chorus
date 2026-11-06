@@ -14,9 +14,24 @@ struct ParseVersesSheet: View {
     @State private var status = "Choose a PowerPoint presentation to find Bible references."
 
     private var defaultEnglishVersion: BibleXMLImporter.Version? {
-        bibleStore.versions.first {
-            !$0.name.localizedCaseInsensitiveContains("tamil")
+        bibleStore.versions.first { !isTamilVersion($0) }
+    }
+
+    private var defaultTamilVersion: BibleXMLImporter.Version? {
+        bibleStore.versions.first(where: isTamilVersion)
+    }
+
+    private func isTamilVersion(_ version: BibleXMLImporter.Version) -> Bool {
+        let nameParts = version.name.localizedLowercase.split {
+            !$0.isLetter && !$0.isNumber
         }
+        return nameParts.contains(where: { $0 == "tam" || $0 == "tamil" })
+            || containsTamilScript(version.name)
+            || version.verses.prefix(50).contains { containsTamilScript($0.text) }
+    }
+
+    private func containsTamilScript(_ text: String) -> Bool {
+        text.unicodeScalars.contains { (0x0B80...0x0BFF).contains($0.value) }
     }
 
     var body: some View {
@@ -26,7 +41,7 @@ struct ParseVersesSheet: View {
                     .font(.title2)
                     .foregroundStyle(.tint)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Parse Verses")
+                    Text("Import and Parse Verses")
                         .font(.title3.weight(.semibold))
                     Text("Find Bible references in slide text and add verses to this Service Flow.")
                         .font(.callout)
@@ -48,7 +63,7 @@ struct ParseVersesSheet: View {
                 Spacer()
                 Button("Close") { dismiss() }
                     .keyboardShortcut(.cancelAction)
-                Button("Choose PPTX…", systemImage: "doc.badge.plus") {
+                Button("Import and Parse Verses…", systemImage: "doc.badge.plus") {
                     choosePowerPoint()
                 }
                 .keyboardShortcut(.defaultAction)
@@ -199,14 +214,26 @@ struct ParseVersesSheet: View {
             ),
         ]
         let versionLabel = BibleVerseSlideBuilder.shortVersionName(version.name)
+        let tamilVersion = defaultTamilVersion
+        let tamilVersesByID = Dictionary(
+            (tamilVersion?.verses ?? []).map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let tamilVersionLabel = tamilVersion.map {
+            BibleVerseSlideBuilder.shortVersionName($0.name)
+        }
         let design = model.slideBuilding.lyricsDesign
         var verseCount = 0
         var passageCount = 0
 
         for group in resolved {
-            let versePresentations = group.verses.map {
+            let versePresentations = group.verses.map { verse in
                 BibleVerseSlideBuilder.makePresentation(
-                    for: $0, versionName: versionLabel, themeSlideName: design
+                    for: verse,
+                    versionName: versionLabel,
+                    tamil: tamilVersesByID[verse.id],
+                    tamilVersionName: tamilVersionLabel,
+                    themeSlideName: design
                 )
             }
             presentations.append(contentsOf: versePresentations)

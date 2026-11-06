@@ -1007,3 +1007,25 @@ Validation:
 - `git diff --check` passed.
 
 The user-provided `EnglishBible.xml` and `TamilBible.xml` files remain untracked and are not included in this change.
+
+## 41. Include Tamil text in parsed Bible verses (2026-11-06)
+
+Updated **Import and Parse Verses** to pair each resolved English verse with the corresponding verse from an imported Tamil version, using the canonical book/chapter/verse identifier. Tamil versions are detected from their name (`Tamil`/`TAM`) or Tamil-script content, so renamed local versions such as `TAM` are recognized. Paired slides display both texts and their version labels, matching the Bible library’s bilingual slides. Renamed the Service Flow action and import-sheet heading/button to **Import and Parse Verses**.
+
+## 42. Keep online lyrics search results available while previewing (2026-11-06)
+
+The online lyrics import sheet now keeps its search results visible while displaying a selected result's lyrics preview. Select another result to replace the preview, with the current selection marked; new searches clear the previous result and preview to avoid stale content. Search and result controls are disabled during network requests to prevent overlapping selections.
+
+## 43. Package services with their referenced library assets (2026-11-06)
+
+Changed service export/import from a service-only JSON file to a `.chorusservice` package containing the service, referenced songs and presentations, presentation themes, media and audio files, playlists, output presets, and shareable fonts. Import assigns new document IDs and rewrites references so it does not overwrite existing library items, stores verified assets in the local blob library, and selects the imported service. Missing files prevent export instead of producing an incomplete package. Existing version-1 service-only JSON exports remain importable.
+
+## 44. Simplify the pastor phone remote (2026-11-06)
+
+Redesigned `/remote` as a mobile-first show controller with only previous-slide, next-slide, and **Go back to the slide** controls. It connects automatically, uses a high-contrast live-slide preview and large touch targets, and only shows the return control while Chorus has a saved pre-verse slide to restore. Removed clear-slide, clear-all, and manual-connect controls from the pastor-facing page.
+
+Validation:
+
+- Chorus Debug build succeeded.
+- All LocalAPI tests passed (32 tests), including remote-control and status-wire coverage.
+- `git diff --check` passed.

@@ -884,7 +884,7 @@ struct RunOrderList: View {
                     }
                 }
                 Button("New Media Item…") { importMediaIntoService() }
-                Button("Parse Verses…") { showingParseVerses = true }
+                Button("Import and Parse Verses…") { showingParseVerses = true }
                 Button("Header…") { addingHeader = true }
                 Divider()
                 Button("Add From Library…") { addingFromLibrary = true }

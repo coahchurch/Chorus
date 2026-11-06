@@ -470,6 +470,11 @@ final class ServiceControls {
 
     private var bibleVerseReturn: BibleVerseReturn?
 
+    var canReturnFromBibleVerse: Bool {
+        guard let returnState = bibleVerseReturn else { return false }
+        return state.liveSlide?.presentation?.id == returnState.currentPresentationID
+    }
+
     private(set) var keyboardFires = 0
 
     func noteKeyboardFire() {

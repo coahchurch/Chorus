@@ -317,7 +317,7 @@ public enum SlidesPresentationFile {
             fontsAdded: fontsAdded, missing: plan.missing)
     }
 
-    static func remapped<E: Codable>(_ value: E, _ map: [String: String]) -> E? {
+    public static func remapped<E: Codable>(_ value: E, _ map: [String: String]) -> E? {
         guard !map.isEmpty, let data = try? JSONEncoder().encode(value),
               let tree = try? JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed) else { return nil }
         var changed = false
@@ -342,7 +342,7 @@ public enum SlidesPresentationFile {
         return try? JSONDecoder().decode(E.self, from: back)
     }
 
-    nonisolated static func installFonts(_ files: [URL], libraryRoot: URL) -> Int {
+    public nonisolated static func installFonts(_ files: [URL], libraryRoot: URL) -> Int {
         var installed = 0
         for file in files {
             if let faces = FontSharing.faces(inFileAt: file)?.faces,

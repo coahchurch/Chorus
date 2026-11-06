@@ -1770,9 +1770,9 @@ struct LibraryCommands: Commands {
                 .disabled(model == nil || runOnly)
             Button("Import Chorus Presentation…") { model?.presentPresentationFileImport() }
                 .disabled(model == nil || runOnly)
-            Button("Export Service…") { exportService() }
+            Button("Export Service Package…") { exportService() }
                 .disabled(model == nil || model?.currentServiceID == nil || runOnly)
-            Button("Import Service…") { importService() }
+            Button("Import Service Package…") { importService() }
                 .disabled(model == nil || runOnly)
             Divider()
             Button("Export Library Backup…") { exportBackup() }
@@ -1791,10 +1791,12 @@ struct LibraryCommands: Commands {
                 panel.nameFieldStringValue = "\(service.name).chorusservice"
                 panel.begin { response in
                     guard response == .OK, let url = panel.url else { return }
-                    do {
-                        try model.exportService(id, to: url)
-                    } catch {
-                        showServiceError(error, context: "Export service")
+                    Task { @MainActor in
+                        do {
+                            try await model.exportService(id, to: url)
+                        } catch {
+                            showServiceError(error, context: "Export service package")
+                        }
                     }
                 }
             } catch {
@@ -1808,10 +1810,12 @@ struct LibraryCommands: Commands {
             panel.allowedContentTypes = [UTType(filenameExtension: "chorusservice")].compactMap { $0 }
             panel.begin { response in
                 guard response == .OK, let url = panel.url else { return }
-                do {
-                    _ = try model.importService(from: url)
-                } catch {
-                    showServiceError(error, context: "Import service")
+                Task { @MainActor in
+                    do {
+                        _ = try await model.importService(from: url)
+                    } catch {
+                        showServiceError(error, context: "Import service package")
+                    }
                 }
             }
         }

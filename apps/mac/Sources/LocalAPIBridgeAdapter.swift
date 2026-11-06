@@ -164,7 +164,8 @@ final class AppAPIBridge: LocalAPIBridge {
             },
             nextSlide: APIShowStatus.NextSlide(text: controls.nextSlideText),
             position: APIShowStatus.Position(
-                currentItemName: controls.currentItemName, nextItemName: controls.nextItemName)
+                currentItemName: controls.currentItemName, nextItemName: controls.nextItemName),
+            canReturnToUnderlying: controls.canReturnFromBibleVerse
         )
     }
 

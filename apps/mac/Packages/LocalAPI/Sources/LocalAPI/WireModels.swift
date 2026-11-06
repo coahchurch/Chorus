@@ -203,12 +203,14 @@ public struct APIShowStatus: Codable, Sendable {
     public var service: ServiceRef?
     public var nextSlide: NextSlide?
     public var position: Position?
+    public var canReturnToUnderlying: Bool?
 
     public init(
         liveSlide: LiveSlide?, nextSlideText: String?,
         mediaLayers: [String: LayerContent], overlays: [Overlay],
         alert: Alert?, currentServiceId: String?,
-        service: ServiceRef? = nil, nextSlide: NextSlide? = nil, position: Position? = nil
+        service: ServiceRef? = nil, nextSlide: NextSlide? = nil, position: Position? = nil,
+        canReturnToUnderlying: Bool? = nil
     ) {
         self.liveSlide = liveSlide
         self.nextSlideText = nextSlideText
@@ -219,6 +221,7 @@ public struct APIShowStatus: Codable, Sendable {
         self.service = service
         self.nextSlide = nextSlide
         self.position = position
+        self.canReturnToUnderlying = canReturnToUnderlying
     }
 }
 

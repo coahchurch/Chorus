@@ -151,6 +151,7 @@ public enum OpenAPIDocument {
             ], required: ["id", "name"]),
             "nextSlide": obj(["text": str, "presentationId": str, "slideId": str, "slideIndex": int]),
             "position": obj(["currentItemName": str, "nextItemName": str]),
+            "canReturnToUnderlying": .object(["type": "boolean", "nullable": true]),
             "mediaLayers": .object([
                 "type": "object",
                 "additionalProperties": obj([

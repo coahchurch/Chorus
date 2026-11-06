@@ -13,7 +13,8 @@ final class ShowStatusWireTests: XCTestCase {
             currentServiceId: "svc",
             service: .init(id: "svc", name: "Sunday"),
             nextSlide: .init(text: "Miracle worker"),
-            position: .init(currentItemName: "Way Maker", nextItemName: "Welcome"))
+            position: .init(currentItemName: "Way Maker", nextItemName: "Welcome"),
+            canReturnToUnderlying: true)
 
         let json = try JSONSerialization.jsonObject(with: APIJSON.encoder().encode(status)) as? [String: Any]
         let live = json?["liveSlide"] as? [String: Any]
@@ -22,6 +23,7 @@ final class ShowStatusWireTests: XCTestCase {
         XCTAssertEqual((json?["service"] as? [String: Any])?["name"] as? String, "Sunday")
         XCTAssertEqual((json?["position"] as? [String: Any])?["nextItemName"] as? String, "Welcome")
         XCTAssertEqual((json?["nextSlide"] as? [String: Any])?["text"] as? String, "Miracle worker")
+        XCTAssertEqual(json?["canReturnToUnderlying"] as? Bool, true)
     }
 
     func testTimersDocumentEncodesAnchorsAsISODates() throws {

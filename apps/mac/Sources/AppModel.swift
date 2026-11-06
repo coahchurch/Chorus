@@ -1599,38 +1599,233 @@ final class AppModel {
         return runningVersion(of: main).map { ServiceVersions.apply($0, to: main) } ?? main
     }
 
-    func exportService(_ id: String, to url: URL) throws {
+    func exportService(_ id: String, to url: URL) async throws {
+        await client.settled()
         let service = try mainService(id)
-        struct Export: Codable {
-            var format = "chorus-service"
-            var version = 1
-            var service: Service
+        let reader = try await client.reader()
+        var songs: [String: SongLyrics] = [:]
+        var presentations: [String: Presentation] = [:]
+        var themes: [String: Theme] = [:]
+        var media: [String: MediaItem] = [:]
+        var audio: [String: AudioItem] = [:]
+        var fonts: [String: URL] = [:]
+        var playlists: [String: Playlist] = [:]
+        var outputPresets: [String: OutputPreset] = [:]
+
+        for item in service.items {
+            switch item.itemKind {
+            case .song:
+                songs[item.refId] = try await reader.loadValue(SongLyrics.self, id: item.refId)
+            case .presentation:
+                presentations[item.refId] = try await reader.loadValue(Presentation.self, id: item.refId)
+            case .media:
+                media[item.refId] = try await reader.loadValue(MediaItem.self, id: item.refId)
+            case .audio:
+                audio[item.refId] = try await reader.loadValue(AudioItem.self, id: item.refId)
+            case .playlist:
+                playlists[item.refId] = try await reader.loadValue(Playlist.self, id: item.refId)
+            case .header, .info:
+                break
+            }
+            if let outputPresetID = item.outputPresetId {
+                outputPresets[outputPresetID] = try await reader.loadValue(
+                    OutputPreset.self, id: outputPresetID
+                )
+            }
         }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(Export(service: service))
-        try data.write(to: url, options: .atomic)
+
+        for presentationID in presentations.keys.sorted() {
+            let bundle = try await reader.deckBundle(id: presentationID)
+            presentations[presentationID] = bundle.presentation
+            themes.merge(bundle.themes) { existing, _ in existing }
+            media.merge(bundle.media) { existing, _ in existing }
+            audio.merge(bundle.audio) { existing, _ in existing }
+            for font in SlidesPresentationFile.fontFiles(for: bundle) {
+                fonts[font.path] = font
+            }
+            guard bundle.missingMedia.isEmpty, bundle.missingThemes.isEmpty else {
+                let missing = (bundle.missingMedia.union(bundle.missingThemes)).sorted().joined(separator: ", ")
+                throw ServicePackage.PackageError.missingAsset(missing)
+            }
+        }
+
+        for playlist in playlists.values {
+            let mediaIDs = playlist.entries.filter { $0.refKind == .media }.map(\.refId)
+            let audioIDs = playlist.entries.filter { $0.refKind == .audio }.map(\.refId)
+            let loadedMedia = await reader.loadValues(MediaItem.self, ids: mediaIDs)
+            let loadedAudio = await reader.loadValues(AudioItem.self, ids: audioIDs)
+            guard loadedMedia.failed.isEmpty, loadedAudio.failed.isEmpty else {
+                throw ServicePackage.PackageError.missingAsset(
+                    (loadedMedia.failed.union(loadedAudio.failed)).sorted().joined(separator: ", ")
+                )
+            }
+            media.merge(loadedMedia.values) { existing, _ in existing }
+            audio.merge(loadedAudio.values) { existing, _ in existing }
+        }
+        let mediaActionAudioIDs = media.values.flatMap { item in
+            (item.actions ?? [])
+                .filter { $0.kind == .fireAudio }
+                .compactMap(\.audioItemId)
+        }
+        let actionAudio = await reader.loadValues(AudioItem.self, ids: mediaActionAudioIDs)
+        guard actionAudio.failed.isEmpty else {
+            throw ServicePackage.PackageError.missingAsset(actionAudio.failed.sorted().joined(separator: ", "))
+        }
+        audio.merge(actionAudio.values) { existing, _ in existing }
+
+        let mediaAssets = media.values.map { ($0.fileHash, $0.name) }
+        let audioAssets = audio.values.map { ($0.fileHash, $0.name) }
+        let assetNames = Dictionary(
+            mediaAssets + audioAssets,
+            uniquingKeysWith: { first, _ in first }
+        )
+        var blobURLs: [String: URL] = [:]
+        for hash in assetNames.keys.sorted() {
+            guard let url = blobs?.url(forHash: hash) else {
+                throw ServicePackage.PackageError.missingAsset(assetNames[hash] ?? hash)
+            }
+            blobURLs[hash] = url
+        }
+
+        let payload = ServicePackage.Payload(
+            service: service,
+            songs: songs.values.sorted { $0.id < $1.id },
+            presentations: presentations.values.sorted { $0.id < $1.id },
+            themes: themes.values.sorted { $0.id < $1.id },
+            media: media.values.sorted { $0.id < $1.id },
+            audio: audio.values.sorted { $0.id < $1.id },
+            playlists: playlists.values.sorted { $0.id < $1.id },
+            outputPresets: outputPresets.values.sorted { $0.id < $1.id }
+        )
+        try await Task.detached(priority: .userInitiated) {
+            try ServicePackage.write(
+                payload, blobs: blobURLs, fonts: Array(fonts.values), to: url
+            )
+        }.value
     }
 
     @discardableResult
-    func importService(from url: URL) throws -> String {
+    func importService(from url: URL) async throws -> String {
         struct Export: Codable {
             var format: String
             var version: Int
             var service: Service
         }
-        let data = try Data(contentsOf: url)
-        let decoded = try JSONDecoder().decode(Export.self, from: data)
-        guard decoded.format == "chorus-service", decoded.version == 1 else {
-            throw NSError(domain: "ChorusServiceImport", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "This file is not a supported Chorus service export."
-            ])
+        let file = try FileHandle(forReadingFrom: url)
+        let prefix = try file.read(upToCount: 2) ?? Data()
+        try file.close()
+        if prefix.first == UInt8(ascii: "{") {
+            let data = try Data(contentsOf: url)
+            if let decoded = try? JSONDecoder().decode(Export.self, from: data),
+               decoded.format == "chorus-service", decoded.version == 1 {
+                var service = decoded.service
+                service.id = UUID().uuidString
+                service.name = "\(service.name) (Imported)"
+                service.versions = nil
+                _ = try await createInDrive(service).value
+                currentServiceID = service.id
+                return service.id
+            }
         }
-        var service = decoded.service
+
+        let contents = try await Task.detached(priority: .userInitiated) {
+            try ServicePackage.read(url)
+        }.value
+        defer { ServicePackage.remove(contents) }
+        let payload = contents.payload
+        var idMap: [String: String] = [:]
+        var packagedIDs = [payload.service.id]
+        packagedIDs.append(contentsOf: payload.songs.map(\.id))
+        packagedIDs.append(contentsOf: payload.presentations.map(\.id))
+        packagedIDs.append(contentsOf: payload.themes.map(\.id))
+        packagedIDs.append(contentsOf: payload.media.map(\.id))
+        packagedIDs.append(contentsOf: payload.audio.map(\.id))
+        packagedIDs.append(contentsOf: payload.playlists.map(\.id))
+        packagedIDs.append(contentsOf: payload.outputPresets.map(\.id))
+        for id in Set(packagedIDs) {
+            idMap[id] = UUID().uuidString
+        }
+
+        func remap<T: Codable>(_ value: T) -> T {
+            SlidesPresentationFile.remapped(value, idMap) ?? value
+        }
+        let songs = payload.songs.map { value -> SongLyrics in
+            var value = remap(value)
+            value.id = idMap[value.id] ?? value.id
+            value.folder = nil
+            value.folderId = nil
+            return value
+        }
+        let presentations = payload.presentations.map { value -> Presentation in
+            var value = remap(value)
+            value.id = idMap[value.id] ?? value.id
+            value.folder = nil
+            value.folderId = nil
+            return value
+        }
+        let themes = payload.themes.map { value -> Theme in
+            var value = remap(value)
+            value.id = idMap[value.id] ?? value.id
+            return value
+        }
+        let media = payload.media.map { value -> MediaItem in
+            var value = remap(value)
+            value.id = idMap[value.id] ?? value.id
+            value.folder = nil
+            value.folderId = nil
+            return value
+        }
+        let audio = payload.audio.map { value -> AudioItem in
+            var value = remap(value)
+            value.id = idMap[value.id] ?? value.id
+            value.folder = nil
+            value.folderId = nil
+            return value
+        }
+        let playlists = payload.playlists.map { value -> Playlist in
+            var value = remap(value)
+            value.id = idMap[value.id] ?? value.id
+            return value
+        }
+        let outputPresets = payload.outputPresets.map { value -> OutputPreset in
+            var value = remap(value)
+            value.id = idMap[value.id] ?? value.id
+            return value
+        }
+        var service = remap(payload.service)
         service.id = UUID().uuidString
         service.name = "\(service.name) (Imported)"
         service.versions = nil
-        createInDrive(service)
+
+        guard let blobs else {
+            throw ServicePackage.PackageError.invalidPackage
+        }
+        let packagedBlobs = contents.blobFiles
+        for hash in packagedBlobs.keys.sorted() {
+            guard let file = packagedBlobs[hash] else { continue }
+            let storedHash = try await Task.detached(priority: .utility) {
+                try blobs.store(fileURL: file)
+            }.value
+            guard storedHash == hash else {
+                throw ServicePackage.PackageError.invalidAsset(hash)
+            }
+        }
+        let libraryRoot = client.rootURL
+        let fontFiles = contents.fontFiles
+        _ = await Task.detached(priority: .utility) {
+            SlidesPresentationFile.installFonts(fontFiles, libraryRoot: libraryRoot)
+        }.value
+
+        var writes: [Task<LibraryBatch, any Error>] = []
+        for value in songs { writes.append(createInDrive(value)) }
+        for value in themes { writes.append(createInDrive(value)) }
+        for value in media { writes.append(createInDrive(value)) }
+        for value in audio { writes.append(createInDrive(value)) }
+        for value in playlists { writes.append(createInDrive(value)) }
+        for value in outputPresets { writes.append(createInDrive(value)) }
+        for value in presentations { writes.append(createInDrive(value)) }
+        for write in writes { _ = try await write.value }
+        _ = try await createInDrive(service).value
         currentServiceID = service.id
         return service.id
     }
